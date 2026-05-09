@@ -29,6 +29,10 @@ object RuntimeOverrideBuilder {
     internal const val ROOT_TUN_TABLE = 2022
     internal const val ROOT_TUN_RULE_INDEX = 9000
 
+    // 「通过代理更新订阅」开启且用户未显式配置 mixed-port 时的兜底默认值，
+    // 确保 mihomo 一定监听 HTTP 代理端口，让 SubscriptionProxyResolver 稳定解析到
+    internal const val DEFAULT_MIXED_PORT = 7890
+
     private val json = Json {
         encodeDefaults = false
         explicitNulls = false
@@ -45,17 +49,32 @@ object RuntimeOverrideBuilder {
      * - [TunMode.Vpn]        VpnService + sing-tun fd，仅写 `tun.file-descriptor`
      * - [TunMode.RootTun]    sing-tun auto_route + include/exclude-package；可选为 tether 加 tproxy-port
      * - [TunMode.RootTproxy] 关闭 TUN，写 tproxy-port + dns.listen，AppProxy 交 iptables uid-owner
+     *
+     * mixed-port 决策（决定 mihomo 是否监听 HTTP 代理端口，[SubscriptionProxyResolver] 据此走代理）：
+     * 1. 用户 override 显式设置 → 用用户值（覆盖订阅 yaml）
+     * 2. 订阅 yaml 自带 `mixed-port` → 不注入，mihomo 沿用订阅 yaml 原值
+     * 3. [subscriptionUpdateViaProxy] 启用 → 注入 [DEFAULT_MIXED_PORT] 兜底，确保开关稳定生效
+     * 4. 其余情况不注入。调用方需先读订阅 yaml 用 [ConfigGenerator.readSubscriptionMixedPort]
+     *    传入 [subscriptionMixedPort]，避免兜底值覆盖订阅自带的非默认端口。
      */
     fun buildAndWriteForRun(
         context: Context,
         userOverride: ConfigurationOverride,
         tunFd: Int,
         tunMode: TunMode,
+        subscriptionUpdateViaProxy: Boolean,
+        subscriptionMixedPort: Int?,
         tproxyForTether: Boolean = false,
     ): File {
         val merged = userOverride.copy(
             externalController = null,
             secret = null,
+            mixedPort = when {
+                userOverride.mixedPort != null -> userOverride.mixedPort
+                subscriptionMixedPort != null -> null
+                subscriptionUpdateViaProxy -> DEFAULT_MIXED_PORT
+                else -> null
+            },
             tproxyPort = when (tunMode) {
                 // RootTproxy：mihomo 主入站就是 tproxy，端口锁定
                 TunMode.RootTproxy -> RootTproxyApplier.TPROXY_PORT

@@ -276,11 +276,17 @@ class MishkaTunService : VpnService() {
                 ?: subscriptionId?.let { ConfigGenerator.readSubscriptionSecret(this@MishkaTunService, it) }
                 ?: ConfigGenerator.generateSecret()
             val extCtl = userOverride.resolveExternalController()
+            val viaProxy = storage.getString(StorageKeys.SUBSCRIPTION_UPDATE_VIA_PROXY, "true") == "true"
+            val subMixedPort = subscriptionId?.let {
+                ConfigGenerator.readSubscriptionMixedPort(this@MishkaTunService, it)
+            }
             val overrideFile = RuntimeOverrideBuilder.buildAndWriteForRun(
                 context = this@MishkaTunService,
                 userOverride = userOverride,
                 tunFd = fd,
                 tunMode = TunMode.Vpn,
+                subscriptionUpdateViaProxy = viaProxy,
+                subscriptionMixedPort = subMixedPort,
             )
 
             // 3. 启动 mihomo 核心

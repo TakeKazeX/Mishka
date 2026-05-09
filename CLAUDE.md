@@ -273,7 +273,7 @@ GOOS=android GOARCH=arm64 CGO_ENABLED=0 go build \
 
 **Override 注入**：所有 override 走 `--override-json` CLI flag + JSON 文件，Kotlin 侧零 YAML 改写。用户设置 `OverrideJsonStore.update { ... }` → `override.user.json`，启动时 `RuntimeOverrideBuilder` 叠加 TUN fd / AppProxy / rootMode → `override.run.json`。`secret` / `external-controller` 走 `--secret` / `--ext-ctl` CLI flag 不进 JSON。
 
-**RuntimeOverrideBuilder 默认注入**（用户未显式设置时生效）：`tcp-concurrent=true`（代理并发拨号降低首包延迟）、`find-process-mode=off`（分应用已由 sing-tun `include/exclude-package` / VpnService / iptables uid-owner 处理，mihomo 运行期遍历 `/proc` 纯冗余）。ROOT TUN 分支额外默认 `tun.mtu=9000 + gso=true + gso-max-size=65535`（大包聚合减少 sing-tun read syscall），由 `StorageKeys.ROOT_TUN_JUMBO_MTU` 开关（默认 true）控制；关闭时回退 `mtu=1500 + gso=false`，兼容上游链路拒绝大包的极端 ROM。VPN 模式不注入 MTU/GSO（MTU 由 `VpnService.Builder` 系统管）。用户 `override.user.json` 里的同名字段优先级最高。
+**RuntimeOverrideBuilder 默认注入**（用户未显式设置时生效）：`tcp-concurrent=true`（代理并发拨号降低首包延迟）、`find-process-mode=off`（分应用已由 sing-tun `include/exclude-package` / VpnService / iptables uid-owner 处理，mihomo 运行期遍历 `/proc` 纯冗余）。ROOT TUN 分支额外默认 `tun.mtu=9000 + gso=true + gso-max-size=65535`（大包聚合减少 sing-tun read syscall），由 `StorageKeys.ROOT_TUN_JUMBO_MTU` 开关（默认 true）控制；关闭时回退 `mtu=1500 + gso=false`，兼容上游链路拒绝大包的极端 ROM。VPN 模式不注入 MTU/GSO（MTU 由 `VpnService.Builder` 系统管）。mixed-port 决策按以下优先级：① 用户 override 显式设置 → 用用户值；② 订阅 yaml 自带 `mixed-port` → 不注入，mihomo 沿用订阅原值；③ `StorageKeys.SUBSCRIPTION_UPDATE_VIA_PROXY` 启用 → 注入 7890 兜底，确保 `SubscriptionProxyResolver` 能稳定解析到代理端口；④ 其余情况不注入。订阅 yaml 的 mixed-port 由 `ConfigGenerator.readSubscriptionMixedPort` 行级扫描得出，避免兜底值意外覆盖订阅自带的非默认端口。用户 `override.user.json` 里的同名字段优先级最高。
 
 **硬编码覆盖订阅（按 submode 分）**：`profile.store-selected=false` / `profile.store-fake-ip=true` 三模式共用。
 

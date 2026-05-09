@@ -46,4 +46,29 @@ object ConfigGenerator {
             null
         }
     }
+
+    /**
+     * 从订阅 config.yaml 中提取顶层 `mixed-port` 字段，用于判断 mihomo 是否
+     * 已经会监听 HTTP 代理端口（决定 [RuntimeOverrideBuilder] 是否注入兜底默认值）。
+     *
+     * 仅做行级匹配（行首 `mixed-port:`，不含缩进），支持行尾注释。值非正整数视为未设置。
+     *
+     * @return 解析到的端口（1..65535）；订阅无该字段、值非数字、或文件不存在则返回 null
+     */
+    fun readSubscriptionMixedPort(context: Context, subscriptionId: String): Int? {
+        val file = ProfileFileOps.getSubscriptionConfigFile(context, subscriptionId)
+        if (!file.exists()) return null
+        val regex = Regex("""^mixed-port:\s*(\d+)\s*(?:#.*)?$""")
+        return try {
+            file.useLines { lines ->
+                for (line in lines) {
+                    val raw = regex.matchEntire(line)?.groupValues?.get(1) ?: continue
+                    return@useLines raw.toIntOrNull()?.takeIf { it in 1..65535 }
+                }
+                null
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
 }

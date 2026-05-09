@@ -279,11 +279,17 @@ class MishkaRootService : Service() {
                 storage.putString(StorageKeys.ROOT_TPROXY_KERNEL_CAPABLE, "")
                 false
             }
+            val viaProxy = storage.getString(StorageKeys.SUBSCRIPTION_UPDATE_VIA_PROXY, "true") == "true"
+            val subMixedPort = subscriptionId?.let {
+                ConfigGenerator.readSubscriptionMixedPort(this@MishkaRootService, it)
+            }
             val overrideFile = RuntimeOverrideBuilder.buildAndWriteForRun(
                 context = this@MishkaRootService,
                 userOverride = userOverride,
                 tunFd = -1,
                 tunMode = submode.tunMode,
+                subscriptionUpdateViaProxy = viaProxy,
+                subscriptionMixedPort = subMixedPort,
                 tproxyForTether = tproxyForTether,
             )
 

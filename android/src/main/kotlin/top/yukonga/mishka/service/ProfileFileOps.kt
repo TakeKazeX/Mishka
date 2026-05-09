@@ -228,6 +228,7 @@ object ProfileFileOps {
     // === GeoIP 共享管理 ===
 
     private val GEODATA_FILES = listOf(
+        "geoip.metadb",
         "Country.mmdb", "country.mmdb",
         "geoip.dat", "GeoIP.dat",
         "geosite.dat", "GeoSite.dat",
