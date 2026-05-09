@@ -8,11 +8,13 @@ import android.content.IntentFilter
 import android.os.PowerManager
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
-import top.yukonga.mishka.data.api.MihomoApiClient
-import top.yukonga.mishka.data.api.MihomoWebSocket
+import top.yukonga.mishka.data.api.MihomoConnectionManager
 import top.yukonga.mishka.platform.PlatformStorage
 import top.yukonga.mishka.platform.StorageKeys
 import top.yukonga.mishka.platform.TunMode
@@ -20,21 +22,21 @@ import top.yukonga.mishka.util.FormatUtils
 
 /**
  * 动态通知管理器。
- * 通过 WebSocket 接收实时流量数据，更新前台服务通知。
- * 由 MishkaTunService 和 MishkaRootService 共用。
+ * 通过共享的 [MihomoConnectionManager.repository] 拿 traffic 流，更新前台服务通知。
+ * 不持有自己的 HttpClient——所有 mihomo 客户端实例由 connectionManager 单点管理。
  */
 class DynamicNotificationManager(
     private val context: Context,
     private val scope: CoroutineScope,
+    private val connectionManager: MihomoConnectionManager,
 ) {
 
     private var trafficJob: Job? = null
     private var screenReceiver: BroadcastReceiver? = null
 
-    fun start(secret: String, profileName: String, externalController: String = "127.0.0.1:9090") {
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun start(profileName: String) {
         val notificationManager = context.getSystemService(NotificationManager::class.java)
-        val apiClient = MihomoApiClient(baseUrl = "http://$externalController", secret = secret)
-        val webSocket = MihomoWebSocket(apiClient)
 
         var isScreenOn = context.getSystemService(PowerManager::class.java)?.isInteractive ?: true
 
@@ -51,8 +53,11 @@ class DynamicNotificationManager(
             },
         )
 
+        // mihomo 重启时 connectionManager.repository 切到新实例，flatMapLatest 自动取消旧 trafficFlow 收集
         trafficJob = scope.launch {
-            webSocket.trafficFlow()
+            connectionManager.repository
+                .filterNotNull()
+                .flatMapLatest { it.trafficFlow() }
                 .catch { Log.w(TAG, "Traffic flow error: $it") }
                 .collect { traffic ->
                     if (!isScreenOn) return@collect
@@ -72,11 +77,11 @@ class DynamicNotificationManager(
     /**
      * 根据设置启动动态通知或显示静态通知。
      */
-    fun startOrFallbackStatic(storage: PlatformStorage, secret: String, externalController: String = "127.0.0.1:9090", tunMode: TunMode = TunMode.Vpn) {
+    fun startOrFallbackStatic(storage: PlatformStorage, tunMode: TunMode = TunMode.Vpn) {
         val isDynamic = storage.getString(StorageKeys.DYNAMIC_NOTIFICATION, "true") == "true"
         if (isDynamic) {
             val profileName = storage.getString(StorageKeys.ACTIVE_PROFILE_NAME, "Mishka")
-            start(secret, profileName, externalController)
+            start(profileName)
         } else {
             val mode = when (tunMode) {
                 TunMode.RootTun -> "Root TUN"

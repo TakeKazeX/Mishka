@@ -16,6 +16,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import top.yukonga.mishka.MishkaApplication
 import top.yukonga.mishka.R
 import top.yukonga.mishka.data.model.resolveExternalController
 import top.yukonga.mishka.data.model.resolveSecretOrNull
@@ -35,7 +36,9 @@ class MishkaTunService : VpnService() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val runner by lazy { MihomoRunner(this) }
-    private val dynamicNotification by lazy { DynamicNotificationManager(this, scope) }
+    private val dynamicNotification by lazy {
+        DynamicNotificationManager(this, scope, MishkaApplication.instance.connectionManager)
+    }
     private val overrideStore by lazy { OverrideJsonStore(AndroidProfileFileManager(this)) }
     private var tunFd: Int = -1
     private var monitorJob: Job? = null
@@ -69,8 +72,6 @@ class MishkaTunService : VpnService() {
                     dynamicNotification.stop()
                     dynamicNotification.startOrFallbackStatic(
                         PlatformStorage(this@MishkaTunService),
-                        state.secret,
-                        state.externalController,
                     )
                 }
             }
@@ -320,7 +321,7 @@ class MishkaTunService : VpnService() {
                 )
             )
 
-            dynamicNotification.startOrFallbackStatic(storage, runner.secret, extCtl)
+            dynamicNotification.startOrFallbackStatic(storage)
             // 记录运行状态，用于开机自启判断
             PlatformStorage(this@MishkaTunService).putString(StorageKeys.SERVICE_WAS_RUNNING, "true")
             Log.i(TAG, "Proxy running, fd=$fd")

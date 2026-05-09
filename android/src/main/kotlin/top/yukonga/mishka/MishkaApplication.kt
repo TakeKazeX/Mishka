@@ -6,7 +6,11 @@ import android.os.Build
 import android.os.Process
 import android.util.Log
 import kotlin.concurrent.thread
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import org.lsposed.hiddenapibypass.HiddenApiBypass
+import top.yukonga.mishka.data.api.MihomoConnectionManager
 import top.yukonga.mishka.platform.PlatformStorage
 import top.yukonga.mishka.platform.StorageKeys
 import top.yukonga.mishka.platform.initToastPlatform
@@ -17,11 +21,19 @@ import java.io.File
 import java.io.FileOutputStream
 
 class MishkaApplication : Application() {
+
+    // application 级单例：全 app 共享一对 mihomo 客户端，按 ProxyServiceBridge.state 自动 connect/disconnect
+    // 消费方（ViewModel / Service）禁止自建 MihomoApiClient/WebSocket，只 collect connectionManager.repository
+    val applicationScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    lateinit var connectionManager: MihomoConnectionManager
+        private set
+
     override fun onCreate() {
         super.onCreate()
         instance = this
         initToastPlatform(this)
         NotificationHelper.createChannels(this)
+        connectionManager = MihomoConnectionManager(applicationScope)
         extractGeoFiles()
         reclaimRootOwnedImported()
 

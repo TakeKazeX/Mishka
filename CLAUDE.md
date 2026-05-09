@@ -37,7 +37,7 @@ Mishka/
 │   ├── commonMain/kotlin/.../mishka/
 │   │   ├── App.kt                    根组件 + 主题配置
 │   │   ├── data/
-│   │   │   ├── api/                  MihomoApiClient（REST）+ MihomoWebSocket（流）
+│   │   │   ├── api/                  MihomoApiClient（REST）+ MihomoWebSocket（流）+ MihomoConnectionManager（全 app 单例）
 │   │   │   ├── database/             Room 3.0 KMP（AppDatabase + 3 Entity + 3 DAO + ProfileTypeConverter）
 │   │   │   ├── model/                @Serializable 数据模型 + ProfileType enum + ConfigurationOverride
 │   │   │   └── repository/           MihomoRepository + SubscriptionRepository + SubscriptionFetcher + ProfileProcessor + OverrideJsonStore + SubscriptionProxyResolver
@@ -87,6 +87,7 @@ MainActivity → App → AppNavigation
 ### 核心模式
 
 - **通信方案**：mihomo RESTful API + WebSocket（非 JNI），代码在 commonMain 跨平台共享
+- **mihomo 客户端共享**：`MihomoConnectionManager`（application-scoped 单例，由 `MishkaApplication.connectionManager` 持有）订阅 `ProxyServiceBridge.state`，`Running` 时构造新 `MihomoRepository`，其他状态置 null；切换前同步 close 旧实例，杜绝 Ktor `HttpClient` 泄漏。所有消费方（5 个 ViewModel + `DynamicNotificationManager`）只 collect `connectionManager.repository: StateFlow<MihomoRepository?>`
 - **导航**：miuix NavDisplay + 自定义 Navigator（push/pop/popUntil + navigateForResult）+ LocalNavigator
 - **主页 Tab**：HorizontalPager + MainPagerState + NavigationBar（4 Tab）
 - **隧道三模式**：VPN / ROOT TUN / ROOT TPROXY（`TunMode { Vpn, RootTun, RootTproxy }`；旧 storage 值 `"root"` 自动迁移为 `"root_tun"`）
@@ -229,7 +230,7 @@ files/mihomo/
 | RootTproxyApplier          | ROOT TPROXY 规则装配（mangle/nat chains + fwmark ip rule + local default dev lo，iptables + uid-owner 分应用）                                               |
 | RootHelper                 | root 检测/启动/终止/存活检查/残留清理 + rmRfAsRoot + chownRecursiveAsRoot + runAsRootReturnCode                                                              |
 | RootTetherHijacker         | ROOT 模式热点流量处置（ip rule 导向 main/TUN 表，绕过代理或走代理）                                                                                          |
-| DynamicNotificationManager | 动态通知（WebSocket 流量），两个 Service 共用                                                                                                                |
+| DynamicNotificationManager | 动态通知（订阅 `MihomoApplication.connectionManager.repository` 的 traffic 流，不持有自己的 HttpClient），两个 Service 共用                                  |
 | MishkaTileService          | Quick Settings Tile 一键启停代理（双模式路由）                                                                                                               |
 | BootReceiver               | 开机自启（默认 disabled，动态启用）                                                                                                                          |
 | ConfigGenerator            | mihomo 工作目录/secret 生成工具（getWorkDir/getConfigFile/generateSecret）                                                                                   |
@@ -270,6 +271,8 @@ GOOS=android GOARCH=arm64 CGO_ENABLED=0 go build \
 ## 关键架构约束
 
 不读代码看不出来的约束。违反会直接踩坑。
+
+**Ktor HttpClient 所有权**：禁止任何模块直接 `MihomoApiClient(...)` / `MihomoWebSocket(...)`；统一从 `MishkaApplication.instance.connectionManager.repository: StateFlow<MihomoRepository?>` 订阅。`MihomoConnectionManager` 是唯一持有 `close()` 责任的方，按 `ProxyServiceBridge.state` 自动 connect/disconnect、原子 close 旧 + new 新——不做 endpoint 比对（attach 重连多一次重建 < 50ms，胜过状态机比对出 race 的代价）。新增消费方仅 collect repository 即可；ViewModel 的 `setRepository(repo)` 仅做信号传递，不承担 close 责任。例外：`SubscriptionFetcher` / `SubscriptionProxyResolver` 因下载/查询场景独立于 mihomo 实时连接，可自建短生命周期 HttpClient，但必须 `client.use{}` 或 try/finally close。
 
 **Override 注入**：所有 override 走 `--override-json` CLI flag + JSON 文件，Kotlin 侧零 YAML 改写。用户设置 `OverrideJsonStore.update { ... }` → `override.user.json`，启动时 `RuntimeOverrideBuilder` 叠加 TUN fd / AppProxy / rootMode → `override.run.json`。`secret` / `external-controller` 走 `--secret` / `--ext-ctl` CLI flag 不进 JSON。
 

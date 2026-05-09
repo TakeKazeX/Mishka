@@ -10,8 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
-import top.yukonga.mishka.data.api.MihomoApiClient
-import top.yukonga.mishka.data.api.MihomoWebSocket
+import top.yukonga.mishka.data.api.MihomoConnectionManager
 import top.yukonga.mishka.data.model.MihomoConfig
 import top.yukonga.mishka.data.model.SubscriptionInfo
 import top.yukonga.mishka.data.model.TunOverride
@@ -74,6 +73,7 @@ class HomeViewModel(
     private val serviceController: ProxyServiceController,
     private val storage: PlatformStorage,
     private val overrideStore: OverrideJsonStore,
+    private val connectionManager: MihomoConnectionManager,
     private val getActiveSubscriptionId: () -> String? = { null },
 ) : ViewModel() {
 
@@ -103,6 +103,8 @@ class HomeViewModel(
     private val systemInfo = PlatformSystemInfo()
 
     init {
+        // 状态机仅维护 UI 状态字段（isStarting / isRunning / startTime / mihomoPid / errorMessage）
+        // mihomo 客户端实例由 connectionManager 统一持有，HomeViewModel 不再自建
         viewModelScope.launch {
             serviceController.status.collect { status ->
                 when (status.state) {
@@ -111,27 +113,32 @@ class HomeViewModel(
                     }
                     ProxyState.Running -> {
                         _uiState.value = _uiState.value.copy(isStarting = false, isRunning = true, tunMode = status.tunMode)
-                        val client = MihomoApiClient(baseUrl = "http://${status.externalController}", secret = status.secret)
-                        val ws = MihomoWebSocket(client)
-                        repository = MihomoRepository(client, ws)
                         startTime = if (status.startTime > 0) status.startTime else Clock.System.now().toEpochMilliseconds()
                         mihomoPid = status.mihomoPid
-                        connectToMihomo()
                     }
                     ProxyState.Stopping -> {
-                        disconnect()
                         _uiState.value = _uiState.value.copy(isRunning = false, isStopping = true)
                     }
                     ProxyState.Stopped -> {
-                        disconnect()
                         _uiState.value = HomeUiState()
                         resetHotStates()
                     }
                     ProxyState.Error -> {
-                        disconnect()
                         _uiState.value = HomeUiState(errorMessage = status.errorMessage)
                         resetHotStates()
                     }
+                }
+            }
+        }
+        // 订阅共享 connectionManager.repository：非 null 表示 mihomo Running，触发数据收集；
+        // null 表示已停止，cancel 流并重置数据。close 由 manager 负责，此处不调用。
+        viewModelScope.launch {
+            connectionManager.repository.collect { repo ->
+                repository = repo
+                if (repo != null) {
+                    connectToMihomo()
+                } else {
+                    disconnectStreams()
                 }
             }
         }
@@ -338,18 +345,20 @@ class HomeViewModel(
         }
     }
 
-    private fun disconnect() {
+    /**
+     * 仅 cancel 自身订阅的流；不再 close repository（owner 是 connectionManager）。
+     * 当 repository StateFlow 切回 null 时由收集回调调用。
+     */
+    private fun disconnectStreams() {
         trafficJob?.cancel()
         memoryJob?.cancel()
         systemInfoJob?.cancel()
         uptimeJob?.cancel()
-        repository?.close()
-        repository = null
         mihomoPid = -1
     }
 
     override fun onCleared() {
         super.onCleared()
-        disconnect()
+        disconnectStreams()
     }
 }

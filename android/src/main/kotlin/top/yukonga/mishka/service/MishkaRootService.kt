@@ -14,6 +14,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import top.yukonga.mishka.MishkaApplication
 import top.yukonga.mishka.R
 import top.yukonga.mishka.data.model.resolveExternalController
 import top.yukonga.mishka.data.model.resolveSecretOrNull
@@ -52,7 +53,9 @@ class MishkaRootService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val runner by lazy { MihomoRunner(this) }
-    private val dynamicNotification by lazy { DynamicNotificationManager(this, scope) }
+    private val dynamicNotification by lazy {
+        DynamicNotificationManager(this, scope, MishkaApplication.instance.connectionManager)
+    }
     private val overrideStore by lazy { OverrideJsonStore(AndroidProfileFileManager(this)) }
     private var monitorJob: Job? = null
     private var notificationRefreshJob: Job? = null
@@ -90,8 +93,6 @@ class MishkaRootService : Service() {
                     dynamicNotification.stop()
                     dynamicNotification.startOrFallbackStatic(
                         PlatformStorage(this@MishkaRootService),
-                        state.secret,
-                        state.externalController,
                         state.tunMode,
                     )
                 }
@@ -192,7 +193,7 @@ class MishkaRootService : Service() {
                         }
                     }
                     ProxyServiceBridge.updateState(ProxyServiceStatus(ProxyState.Running, secret = existingSecret, externalController = ec, tunMode = tunMode, startTime = existingStartTime, mihomoPid = runner.pid))
-                    dynamicNotification.startOrFallbackStatic(storage, existingSecret, ec, tunMode)
+                    dynamicNotification.startOrFallbackStatic(storage, tunMode)
                     storage.putString(StorageKeys.SERVICE_WAS_RUNNING, "true")
                     // 重连到活着的 mihomo：它仍在 runtime/{uuid}/ 下跑，监控日志从同一目录读
                     val workDir = if (subscriptionId != null) ProfileFileOps.getRuntimeDir(this@MishkaRootService, subscriptionId) else ConfigGenerator.getWorkDir(this@MishkaRootService)
@@ -326,7 +327,7 @@ class MishkaRootService : Service() {
 
             // 7. 更新状态和通知
             ProxyServiceBridge.updateState(ProxyServiceStatus(ProxyState.Running, secret = runner.secret, externalController = extCtl, tunMode = tunMode, startTime = startTime, mihomoPid = runner.pid))
-            dynamicNotification.startOrFallbackStatic(storage, runner.secret, extCtl, tunMode)
+            dynamicNotification.startOrFallbackStatic(storage, tunMode)
             storage.putString(StorageKeys.SERVICE_WAS_RUNNING, "true")
             Log.i(TAG, "Proxy running (ROOT $submode)")
 

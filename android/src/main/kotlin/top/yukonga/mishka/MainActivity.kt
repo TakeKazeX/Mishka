@@ -21,18 +21,13 @@ import io.github.g00fy2.quickie.ScanCustomCode
 import io.github.g00fy2.quickie.config.BarcodeFormat
 import io.github.g00fy2.quickie.config.ScannerConfig
 import kotlinx.coroutines.launch
-import top.yukonga.mishka.data.api.MihomoApiClient
-import top.yukonga.mishka.data.api.MihomoWebSocket
 import top.yukonga.mishka.data.database.getAppDatabase
-import top.yukonga.mishka.data.repository.MihomoRepository
 import top.yukonga.mishka.data.repository.OverrideJsonStore
 import top.yukonga.mishka.platform.AppListProvider
 import top.yukonga.mishka.platform.BootStartManager
 import top.yukonga.mishka.platform.FilePicker
 import top.yukonga.mishka.platform.PlatformStorage
-import top.yukonga.mishka.platform.ProxyServiceBridge
 import top.yukonga.mishka.platform.ProxyServiceController
-import top.yukonga.mishka.platform.ProxyState
 import top.yukonga.mishka.platform.StorageKeys
 import top.yukonga.mishka.service.AndroidProfileFileManager
 import top.yukonga.mishka.service.ProfileFileOps
@@ -153,31 +148,19 @@ class MainActivity : ComponentActivity() {
             serviceController = serviceController,
             storage = storage,
             overrideStore = overrideStore,
+            connectionManager = MishkaApplication.instance.connectionManager,
             getActiveSubscriptionId = { subscriptionViewModel.getActiveSubscription()?.id },
         )
 
-        // 监听代理状态，连接/断开 ProxyViewModel 和 LogViewModel
+        // 监听共享 connectionManager 的 repository：mihomo 重启时单点 close 旧 + new 新
+        // 这里只负责把当前 repo 分发给消费方 ViewModel，不持有 close 责任（manager 拥有）
         lifecycleScope.launch {
-            ProxyServiceBridge.state.collect { status ->
-                when (status.state) {
-                    ProxyState.Running -> {
-                        val client = MihomoApiClient(baseUrl = "http://${status.externalController}", secret = status.secret)
-                        val ws = MihomoWebSocket(client)
-                        val repo = MihomoRepository(client, ws)
-                        proxyViewModel.setRepository(repo)
-                        logViewModel.setRepository(repo)
-                        providerViewModel.setRepository(repo)
-                        connectionViewModel.setRepository(repo)
-                        dnsQueryViewModel.setRepository(repo)
-                    }
-                    else -> {
-                        proxyViewModel.setRepository(null)
-                        logViewModel.setRepository(null)
-                        providerViewModel.setRepository(null)
-                        connectionViewModel.setRepository(null)
-                        dnsQueryViewModel.setRepository(null)
-                    }
-                }
+            MishkaApplication.instance.connectionManager.repository.collect { repo ->
+                proxyViewModel.setRepository(repo)
+                logViewModel.setRepository(repo)
+                providerViewModel.setRepository(repo)
+                connectionViewModel.setRepository(repo)
+                dnsQueryViewModel.setRepository(repo)
             }
         }
 
