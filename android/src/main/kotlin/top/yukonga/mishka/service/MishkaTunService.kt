@@ -128,7 +128,7 @@ class MishkaTunService : VpnService() {
             val fd = try {
                 Builder().apply {
                     addAddress(TUN_GATEWAY, TUN_SUBNET_PREFIX)
-                    setMtu(TUN_MTU)
+                    setMtu(RuntimeOverrideBuilder.VPN_TUN_MTU)
                     setSession("Mishka")
                     setBlocking(false)
 
@@ -443,7 +443,6 @@ class MishkaTunService : VpnService() {
         const val ACTION_RESTART = "top.yukonga.mishka.RESTART"
         const val EXTRA_SUBSCRIPTION_ID = "subscription_id"
 
-        private const val TUN_MTU = 9000
         private const val TUN_SUBNET_PREFIX = 30
         private const val TUN_GATEWAY = "198.18.0.1"
         private const val TUN_GATEWAY6 = "fdfe:dcba:9876::1"

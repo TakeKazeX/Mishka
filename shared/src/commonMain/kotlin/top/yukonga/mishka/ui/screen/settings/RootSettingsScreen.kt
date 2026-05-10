@@ -42,6 +42,8 @@ import mishka.shared.generated.resources.root_tproxy_tether_note
 import mishka.shared.generated.resources.root_tun_jumbo_mtu_summary
 import mishka.shared.generated.resources.root_tun_jumbo_mtu_title
 import mishka.shared.generated.resources.settings_tun_device
+import mishka.shared.generated.resources.vpn_allow_ipv6
+import mishka.shared.generated.resources.vpn_allow_ipv6_summary
 import org.jetbrains.compose.resources.stringResource
 import top.yukonga.mishka.platform.PlatformStorage
 import top.yukonga.mishka.platform.StorageKeys
@@ -94,6 +96,10 @@ fun RootSettingsScreen(
 
     var jumboMtu by remember {
         mutableStateOf(storage.getString(StorageKeys.ROOT_TUN_JUMBO_MTU, "true") == "true")
+    }
+
+    var allowIpv6 by remember {
+        mutableStateOf(storage.getString(StorageKeys.VPN_ALLOW_IPV6, "false") == "true")
     }
 
     var forceReapply by remember {
@@ -170,6 +176,15 @@ fun RootSettingsScreen(
                         onCheckedChange = {
                             jumboMtu = it
                             storage.putString(StorageKeys.ROOT_TUN_JUMBO_MTU, it.toString())
+                        },
+                    )
+                    SwitchPreference(
+                        title = stringResource(Res.string.vpn_allow_ipv6),
+                        summary = stringResource(Res.string.vpn_allow_ipv6_summary),
+                        checked = allowIpv6,
+                        onCheckedChange = {
+                            allowIpv6 = it
+                            storage.putString(StorageKeys.VPN_ALLOW_IPV6, it.toString())
                         },
                     )
                 }

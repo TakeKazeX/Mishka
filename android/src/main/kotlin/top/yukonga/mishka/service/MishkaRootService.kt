@@ -338,6 +338,10 @@ class MishkaRootService : Service() {
 
     /**
      * ROOT TPROXY 规则装配：读 AppProxy 配置 + tether ifaces，把包名解析为 UID 后交给 Applier。
+     *
+     * IPv6 注入复用 [StorageKeys.VPN_ALLOW_IPV6]，与 VPN/ROOT TUN 的 `inet6-address` 同一开关。
+     * 默认 false：跳过 ip6tables / `ip -6` 规则，IPv6 出站走内核原生主路由表，避免 mihomo
+     * `ipv6: false` 时 TPROXY 重定向 → 拨号失败 → App 重试紧密循环造成的 mihomo 内存增长。
      */
     private suspend fun applyTproxyRules(storage: PlatformStorage) {
         val appUid = applicationInfo.uid
@@ -352,7 +356,8 @@ class MishkaRootService : Service() {
         } else {
             AppListProvider(this@MishkaRootService).resolveUids(packages)
         }
-        RootTproxyApplier.apply(appUid, selectedUids, proxyMode, ifaces)
+        val ipv6Enabled = storage.getString(StorageKeys.VPN_ALLOW_IPV6, "false") == "true"
+        RootTproxyApplier.apply(appUid, selectedUids, proxyMode, ifaces, ipv6Enabled)
     }
 
     /**

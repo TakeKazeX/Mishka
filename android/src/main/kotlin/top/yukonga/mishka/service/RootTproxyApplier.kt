@@ -68,15 +68,20 @@ object RootTproxyApplier {
      * @param selectedUids AppProxyMode 的已选 UID 集合（白/黑名单语义由 mode 决定）
      * @param mode 分应用代理模式
      * @param tetherIfaces 热点接口列表（复用 ROOT_TETHER_IFACES 存储项）
+     * @param ipv6Enabled 是否注入 ip6tables / `ip -6` 规则。复用 [StorageKeys.VPN_ALLOW_IPV6]：
+     *   关闭（默认）时 IPv6 出站走内核原生主路由表，不被劫持到 mihomo；与 VPN/ROOT TUN
+     *   `inet6-address` 控制粒度对齐，避免 mihomo `ipv6: false` 时 TPROXY 重定向 → 拨号
+     *   失败 → App 重试紧密循环造成 mihomo 内存增长。
      */
     fun apply(
         appUid: Int,
         selectedUids: Set<Int>,
         mode: AppProxyMode,
         tetherIfaces: List<String>,
+        ipv6Enabled: Boolean,
     ) {
-        Log.i(TAG, "apply: appUid=$appUid mode=$mode selected=${selectedUids.size} ifaces=$tetherIfaces")
-        val script = buildApplyScript(appUid, selectedUids, mode, tetherIfaces)
+        Log.i(TAG, "apply: appUid=$appUid mode=$mode selected=${selectedUids.size} ifaces=$tetherIfaces ipv6=$ipv6Enabled")
+        val script = buildApplyScript(appUid, selectedUids, mode, tetherIfaces, ipv6Enabled)
         val code = RootHelper.runRootScriptHeredoc(script, timeoutSeconds = 20)
         Log.i(TAG, "apply finished code=$code")
     }
@@ -121,22 +126,28 @@ object RootTproxyApplier {
         selectedUids: Set<Int>,
         mode: AppProxyMode,
         tetherIfaces: List<String>,
+        ipv6Enabled: Boolean,
     ): String {
+        // ipv6Enabled=false 时全程跳过 ip6tables / ip -6 命令的发射，保证 IPv6 出站走内核原生
+        // 主路由表（设备有 native v6 时直连，无时 ENETUNREACH 让 App 快失败）
+        val tables = if (ipv6Enabled) TABLES else V4_ONLY_TABLES
         val sb = StringBuilder()
         sb.appendLine("#!/system/bin/sh")
         sb.appendLine("set +e")
-        // 0. 幂等前置：清残留（可能来自旧版本 / 异常退出），失败全忽略
+        // 0. 幂等前置：清残留（可能来自旧版本 / 异常退出 / 上次 ipv6 开关相反），失败全忽略
         sb.append(buildTeardownScript(includeShebang = false))
         sb.appendLine()
         sb.appendLine("# === 1. ip rule + route ===")
         sb.appendLine("ip rule  add fwmark $MARK/$MASK lookup $TABLE priority $PRIORITY 2>/dev/null")
-        sb.appendLine("ip -6 rule add fwmark $MARK/$MASK lookup $TABLE priority $PRIORITY 2>/dev/null")
         sb.appendLine("ip  route add local default dev lo table $TABLE 2>/dev/null")
-        sb.appendLine("ip -6 route add local default dev lo table $TABLE 2>/dev/null")
+        if (ipv6Enabled) {
+            sb.appendLine("ip -6 rule add fwmark $MARK/$MASK lookup $TABLE priority $PRIORITY 2>/dev/null")
+            sb.appendLine("ip -6 route add local default dev lo table $TABLE 2>/dev/null")
+        }
 
         sb.appendLine()
         sb.appendLine("# === 2. 自建 chain ===")
-        for (t in TABLES) {
+        for (t in tables) {
             sb.appendLine("$t -w -t mangle -N $CHAIN_PRE")
             sb.appendLine("$t -w -t mangle -N $CHAIN_OUT")
             sb.appendLine("$t -w -t mangle -N $CHAIN_DIVERT")
@@ -146,40 +157,46 @@ object RootTproxyApplier {
 
         sb.appendLine()
         sb.appendLine("# === 3. DIVERT chain: ESTABLISHED 流快速通道 (MARK + ACCEPT) ===")
-        for (t in TABLES) {
+        for (t in tables) {
             sb.appendLine("$t -w -t mangle -A $CHAIN_DIVERT -j MARK --set-xmark $MARK/$MASK ${tag("divert-mark")}")
             sb.appendLine("$t -w -t mangle -A $CHAIN_DIVERT -j ACCEPT ${tag("divert-accept")}")
         }
 
         sb.appendLine()
         sb.appendLine("# === 4. PREROUTING 主链 (intranet RETURN + LOCAL RETURN + DIVERT + TPROXY) ===")
-        appendIntranetReturns(sb, table = "mangle", chain = CHAIN_PRE, tagLabel = "pre-intranet")
+        appendIntranetReturns(sb, table = "mangle", chain = CHAIN_PRE, tagLabel = "pre-intranet", ipv6Enabled = ipv6Enabled)
         // 本机接口任一 IP 为 dst 的包：RETURN（mihomo API、系统服务、dns.listen 等本地监听都要放行，避免劫持）
         sb.appendLine("iptables  -w -t mangle -A $CHAIN_PRE -m addrtype --dst-type LOCAL -j RETURN ${tag("pre-local")}")
-        sb.appendLine("ip6tables -w -t mangle -A $CHAIN_PRE -m addrtype --dst-type LOCAL -j RETURN ${tag("pre-local-v6")} 2>/dev/null")
+        if (ipv6Enabled) {
+            sb.appendLine("ip6tables -w -t mangle -A $CHAIN_PRE -m addrtype --dst-type LOCAL -j RETURN ${tag("pre-local-v6")} 2>/dev/null")
+        }
         // DIVERT：已有 mihomo accepted socket 的后续包（ESTABLISHED TCP 或复用 UDP socket）跳过 TPROXY，
         // 仅打 mark 让 fwmark 路由命中 table 2024 投递 socket；避免 TPROXY 重复拦截造成连接中断
-        for (t in TABLES) {
+        for (t in tables) {
             sb.appendLine("$t -w -t mangle -A $CHAIN_PRE -p tcp -m socket -j $CHAIN_DIVERT ${tag("pre-divert-tcp")}")
             sb.appendLine("$t -w -t mangle -A $CHAIN_PRE -p udp -m socket -j $CHAIN_DIVERT ${tag("pre-divert-udp")}")
         }
         // lo TPROXY：OUTPUT 打 mark 后经 `local default dev lo` reinject，命中这里 attach mihomo socket
         for (proto in listOf("tcp", "udp")) {
             sb.appendLine("iptables  -w -t mangle -A $CHAIN_PRE -p $proto -i lo -j TPROXY --on-ip 127.0.0.1 --on-port $TPROXY_PORT --tproxy-mark $MARK/$MASK ${tag("pre-tproxy-lo-$proto")}")
-            sb.appendLine("ip6tables -w -t mangle -A $CHAIN_PRE -p $proto -i lo -j TPROXY --on-ip ::1 --on-port $TPROXY_PORT --tproxy-mark $MARK/$MASK ${tag("pre-tproxy-lo-$proto-v6")} 2>/dev/null")
+            if (ipv6Enabled) {
+                sb.appendLine("ip6tables -w -t mangle -A $CHAIN_PRE -p $proto -i lo -j TPROXY --on-ip ::1 --on-port $TPROXY_PORT --tproxy-mark $MARK/$MASK ${tag("pre-tproxy-lo-$proto-v6")} 2>/dev/null")
+            }
         }
         // tether ifaces：热点客户端转发流量直接 TPROXY
         for (iface in tetherIfaces) {
             val esc = RootHelper.escapeShellSingleQuoted(iface)
             for (proto in listOf("tcp", "udp")) {
                 sb.appendLine("iptables  -w -t mangle -A $CHAIN_PRE -p $proto -i $esc -j TPROXY --on-ip 127.0.0.1 --on-port $TPROXY_PORT --tproxy-mark $MARK/$MASK ${tag("pre-tproxy-tether-$proto")}")
-                sb.appendLine("ip6tables -w -t mangle -A $CHAIN_PRE -p $proto -i $esc -j TPROXY --on-ip ::1 --on-port $TPROXY_PORT --tproxy-mark $MARK/$MASK ${tag("pre-tproxy-tether-$proto-v6")} 2>/dev/null")
+                if (ipv6Enabled) {
+                    sb.appendLine("ip6tables -w -t mangle -A $CHAIN_PRE -p $proto -i $esc -j TPROXY --on-ip ::1 --on-port $TPROXY_PORT --tproxy-mark $MARK/$MASK ${tag("pre-tproxy-tether-$proto-v6")} 2>/dev/null")
+                }
             }
         }
 
         sb.appendLine()
         sb.appendLine("# === 5. OUTPUT 主链 (本机按 AppProxyMode 打 mark) ===")
-        for (t in TABLES) {
+        for (t in tables) {
             // 5a. root 进程放行：mihomo 以 uid=0 (via su) 运行，必须排除否则死循环；
             //      顺带放行所有 root 工具（adbd / shell 等），是 box_for_magisk 系的常见取舍
             sb.appendLine("$t -w -t mangle -A $CHAIN_OUT -m owner --uid-owner $MIHOMO_BYPASS_UID -j RETURN ${tag("out-bypass-root")}")
@@ -195,14 +212,14 @@ object RootTproxyApplier {
             sb.appendLine("$t -w -t mangle -A $CHAIN_OUT -p tcp --dport 53 -j RETURN ${tag("out-dns-tcp")}")
         }
         // 5d. 局域网 RETURN
-        appendIntranetReturns(sb, table = "mangle", chain = CHAIN_OUT, tagLabel = "out-intranet")
+        appendIntranetReturns(sb, table = "mangle", chain = CHAIN_OUT, tagLabel = "out-intranet", ipv6Enabled = ipv6Enabled)
 
         // 5d. 按 AppProxyMode 打 mark
         sb.appendLine("# --- AppProxyMode: $mode ---")
         when (mode) {
             AppProxyMode.AllowAll -> {
                 // 全局代理，appUid 上面已经 RETURN
-                for (t in TABLES) {
+                for (t in tables) {
                     for (proto in listOf("tcp", "udp")) {
                         sb.appendLine("$t -w -t mangle -A $CHAIN_OUT -p $proto -j MARK --set-xmark $MARK/$MASK ${tag("out-mark-$proto")}")
                     }
@@ -213,7 +230,7 @@ object RootTproxyApplier {
                 // 仅白名单 UID 打 mark，其他默认 RETURN
                 for (uid in selectedUids) {
                     if (uid == appUid) continue // 避免覆盖 5a 的自绕
-                    for (t in TABLES) {
+                    for (t in tables) {
                         for (proto in listOf("tcp", "udp")) {
                             sb.appendLine("$t -w -t mangle -A $CHAIN_OUT -p $proto -m owner --uid-owner $uid -j MARK --set-xmark $MARK/$MASK ${tag("out-mark-uid-$proto")}")
                         }
@@ -224,11 +241,11 @@ object RootTproxyApplier {
             AppProxyMode.DenySelected -> {
                 // 黑名单 UID RETURN，其余全代理
                 for (uid in selectedUids) {
-                    for (t in TABLES) {
+                    for (t in tables) {
                         sb.appendLine("$t -w -t mangle -A $CHAIN_OUT -m owner --uid-owner $uid -j RETURN ${tag("out-deny-uid")}")
                     }
                 }
-                for (t in TABLES) {
+                for (t in tables) {
                     for (proto in listOf("tcp", "udp")) {
                         sb.appendLine("$t -w -t mangle -A $CHAIN_OUT -p $proto -j MARK --set-xmark $MARK/$MASK ${tag("out-mark-$proto")}")
                     }
@@ -241,8 +258,10 @@ object RootTproxyApplier {
         // PREROUTING 仅对 tether 转发流量生效；本机流量不经 PREROUTING nat，不会循环
         sb.appendLine("iptables  -w -t nat -A $CHAIN_DNS_PRE -p udp --dport 53 -j REDIRECT --to-ports $DNS_PORT ${tag("dns-pre-udp")}")
         sb.appendLine("iptables  -w -t nat -A $CHAIN_DNS_PRE -p tcp --dport 53 -j REDIRECT --to-ports $DNS_PORT ${tag("dns-pre-tcp")}")
-        sb.appendLine("ip6tables -w -t nat -A $CHAIN_DNS_PRE -p udp --dport 53 -j REDIRECT --to-ports $DNS_PORT ${tag("dns-pre-udp-v6")} 2>/dev/null")
-        sb.appendLine("ip6tables -w -t nat -A $CHAIN_DNS_PRE -p tcp --dport 53 -j REDIRECT --to-ports $DNS_PORT ${tag("dns-pre-tcp-v6")} 2>/dev/null")
+        if (ipv6Enabled) {
+            sb.appendLine("ip6tables -w -t nat -A $CHAIN_DNS_PRE -p udp --dport 53 -j REDIRECT --to-ports $DNS_PORT ${tag("dns-pre-udp-v6")} 2>/dev/null")
+            sb.appendLine("ip6tables -w -t nat -A $CHAIN_DNS_PRE -p tcp --dport 53 -j REDIRECT --to-ports $DNS_PORT ${tag("dns-pre-tcp-v6")} 2>/dev/null")
+        }
 
         // OUTPUT 自绕顺序：root 进程（mihomo via su）优先 RETURN，mishka app uid 兜底；
         // 不放行会导致 mihomo 自己解析代理服务器域名时被重定向回自己 → 死循环 → 全网无法解析
@@ -252,12 +271,14 @@ object RootTproxyApplier {
         }
         sb.appendLine("iptables  -w -t nat -A $CHAIN_DNS_OUT -p udp --dport 53 -j REDIRECT --to-ports $DNS_PORT ${tag("dns-out-udp")}")
         sb.appendLine("iptables  -w -t nat -A $CHAIN_DNS_OUT -p tcp --dport 53 -j REDIRECT --to-ports $DNS_PORT ${tag("dns-out-tcp")}")
-        sb.appendLine("ip6tables -w -t nat -A $CHAIN_DNS_OUT -m owner --uid-owner $MIHOMO_BYPASS_UID -j RETURN ${tag("dns-out-bypass-root-v6")} 2>/dev/null")
-        if (appUid != MIHOMO_BYPASS_UID) {
-            sb.appendLine("ip6tables -w -t nat -A $CHAIN_DNS_OUT -m owner --uid-owner $appUid -j RETURN ${tag("dns-out-bypass-self-v6")} 2>/dev/null")
+        if (ipv6Enabled) {
+            sb.appendLine("ip6tables -w -t nat -A $CHAIN_DNS_OUT -m owner --uid-owner $MIHOMO_BYPASS_UID -j RETURN ${tag("dns-out-bypass-root-v6")} 2>/dev/null")
+            if (appUid != MIHOMO_BYPASS_UID) {
+                sb.appendLine("ip6tables -w -t nat -A $CHAIN_DNS_OUT -m owner --uid-owner $appUid -j RETURN ${tag("dns-out-bypass-self-v6")} 2>/dev/null")
+            }
+            sb.appendLine("ip6tables -w -t nat -A $CHAIN_DNS_OUT -p udp --dport 53 -j REDIRECT --to-ports $DNS_PORT ${tag("dns-out-udp-v6")} 2>/dev/null")
+            sb.appendLine("ip6tables -w -t nat -A $CHAIN_DNS_OUT -p tcp --dport 53 -j REDIRECT --to-ports $DNS_PORT ${tag("dns-out-tcp-v6")} 2>/dev/null")
         }
-        sb.appendLine("ip6tables -w -t nat -A $CHAIN_DNS_OUT -p udp --dport 53 -j REDIRECT --to-ports $DNS_PORT ${tag("dns-out-udp-v6")} 2>/dev/null")
-        sb.appendLine("ip6tables -w -t nat -A $CHAIN_DNS_OUT -p tcp --dport 53 -j REDIRECT --to-ports $DNS_PORT ${tag("dns-out-tcp-v6")} 2>/dev/null")
 
         sb.appendLine()
         sb.appendLine("# === 7. 挂主链 ===")
@@ -265,14 +286,16 @@ object RootTproxyApplier {
         // 顶层 jump 不打 comment：teardown 的 `-D PREROUTING -j <chain>` 需要与 apply 时的
         // 规则精确匹配，带 comment 的规则需要 `-D` 也带 comment 才能删掉；旧版遗留规则没有
         // comment，这样设计避免升级场景的跨版本不兼容
-        for (t in TABLES) {
+        for (t in tables) {
             sb.appendLine("$t -w -t mangle -I PREROUTING -j $CHAIN_PRE")
             sb.appendLine("$t -w -t mangle -I OUTPUT -j $CHAIN_OUT")
         }
         sb.appendLine("iptables  -w -t nat -I PREROUTING -j $CHAIN_DNS_PRE")
         sb.appendLine("iptables  -w -t nat -I OUTPUT     -j $CHAIN_DNS_OUT")
-        sb.appendLine("ip6tables -w -t nat -I PREROUTING -j $CHAIN_DNS_PRE 2>/dev/null")
-        sb.appendLine("ip6tables -w -t nat -I OUTPUT     -j $CHAIN_DNS_OUT 2>/dev/null")
+        if (ipv6Enabled) {
+            sb.appendLine("ip6tables -w -t nat -I PREROUTING -j $CHAIN_DNS_PRE 2>/dev/null")
+            sb.appendLine("ip6tables -w -t nat -I OUTPUT     -j $CHAIN_DNS_OUT 2>/dev/null")
+        }
 
         sb.appendLine()
         sb.appendLine("exit 0")
@@ -323,18 +346,28 @@ object RootTproxyApplier {
      * 往 [chain] 追加局域网/保留网段的 RETURN 规则：
      * 除 UDP/53 外，所有到 intranet 的流量跳出本链，让 DNS (udp/53) 继续走 nat REDIRECT 劫持。
      *
-     * v4 严格（失败即 bug），v6 best-effort（部分 ROM v6 mangle 可能受限，失败静默）。
+     * v4 严格（失败即 bug），v6 best-effort（部分 ROM v6 mangle 可能受限，失败静默）；
+     * [ipv6Enabled]=false 时跳过 v6 行发射。
      */
-    private fun appendIntranetReturns(sb: StringBuilder, table: String, chain: String, tagLabel: String) {
+    private fun appendIntranetReturns(
+        sb: StringBuilder,
+        table: String,
+        chain: String,
+        tagLabel: String,
+        ipv6Enabled: Boolean,
+    ) {
         for (net in IptablesIntranet.V4) {
             sb.appendLine("iptables -w -t $table -A $chain -d $net -p udp ! --dport 53 -j RETURN ${tag(tagLabel)}")
             sb.appendLine("iptables -w -t $table -A $chain -d $net ! -p udp -j RETURN ${tag(tagLabel)}")
         }
-        for (net in IptablesIntranet.V6) {
-            sb.appendLine("ip6tables -w -t $table -A $chain -d $net -p udp ! --dport 53 -j RETURN ${tag("$tagLabel-v6")} 2>/dev/null")
-            sb.appendLine("ip6tables -w -t $table -A $chain -d $net ! -p udp -j RETURN ${tag("$tagLabel-v6")} 2>/dev/null")
+        if (ipv6Enabled) {
+            for (net in IptablesIntranet.V6) {
+                sb.appendLine("ip6tables -w -t $table -A $chain -d $net -p udp ! --dport 53 -j RETURN ${tag("$tagLabel-v6")} 2>/dev/null")
+                sb.appendLine("ip6tables -w -t $table -A $chain -d $net ! -p udp -j RETURN ${tag("$tagLabel-v6")} 2>/dev/null")
+            }
         }
     }
 
     private val TABLES = listOf("iptables", "ip6tables")
+    private val V4_ONLY_TABLES = listOf("iptables")
 }
