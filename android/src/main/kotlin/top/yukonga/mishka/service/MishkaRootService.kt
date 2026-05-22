@@ -133,6 +133,19 @@ class MishkaRootService : Service() {
             val submode = currentSubmode
             val tunMode = submode.tunMode
             Log.i(TAG, "Starting proxy (ROOT $submode), subscription: $subscriptionId")
+            // 防御外部直拉 Service：无 config 时 mihomo 启动失败且 root 写的日志难以定位
+            if (!ProfileFileOps.hasValidConfig(this@MishkaRootService, subscriptionId)) {
+                Log.e(TAG, "No valid subscription config (id=$subscriptionId), aborting start")
+                ProxyServiceBridge.updateState(
+                    ProxyServiceStatus(
+                        ProxyState.Error,
+                        errorMessage = getString(R.string.error_no_active_profile),
+                        tunMode = tunMode,
+                    )
+                )
+                stopSelf()
+                return@launch
+            }
             ProxyServiceBridge.updateState(ProxyServiceStatus(ProxyState.Starting, tunMode = tunMode))
 
             val storage = PlatformStorage(this@MishkaRootService)

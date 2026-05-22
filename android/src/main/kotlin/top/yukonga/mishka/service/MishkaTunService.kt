@@ -98,6 +98,19 @@ class MishkaTunService : VpnService() {
     private fun startProxy(subscriptionId: String? = null) {
         scope.launch {
             Log.i(TAG, "Starting proxy, subscription: $subscriptionId")
+            // 防御外部直拉 Service：无 config 时 mihomo TUN init silent failure，必须 fast-fail
+            if (!ProfileFileOps.hasValidConfig(this@MishkaTunService, subscriptionId)) {
+                Log.e(TAG, "No valid subscription config (id=$subscriptionId), aborting start")
+                ProxyServiceBridge.updateState(
+                    ProxyServiceStatus(
+                        ProxyState.Error,
+                        errorMessage = getString(R.string.error_no_active_profile),
+                        tunMode = TunMode.Vpn,
+                    )
+                )
+                stopSelf()
+                return@launch
+            }
             ProxyServiceBridge.updateState(ProxyServiceStatus(ProxyState.Starting, tunMode = TunMode.Vpn))
 
             // 清理当前实例 runner 的残留

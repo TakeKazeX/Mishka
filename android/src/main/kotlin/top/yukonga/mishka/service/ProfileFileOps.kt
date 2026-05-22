@@ -41,6 +41,12 @@ object ProfileFileOps {
     fun getSubscriptionConfigFile(context: Context, uuid: String): File =
         File(getImportedDir(context, uuid), "config.yaml")
 
+    fun hasValidConfig(context: Context, uuid: String?): Boolean {
+        if (uuid.isNullOrEmpty()) return false
+        val config = File(File(getWorkDir(context), "imported/$uuid"), "config.yaml")
+        return config.isFile && config.length() > 0
+    }
+
     /**
      * ROOT 模式运行时沙箱目录（mihomo 以 uid=0 在此写 provider/ruleset 缓存，不污染 imported/）。
      */

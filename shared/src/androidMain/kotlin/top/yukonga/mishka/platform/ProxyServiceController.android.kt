@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.VpnService
 import kotlinx.coroutines.flow.StateFlow
+import java.io.File
 
 actual class ProxyServiceController(private val context: Context) {
 
@@ -13,17 +14,21 @@ actual class ProxyServiceController(private val context: Context) {
     actual val status: StateFlow<ProxyServiceStatus> = ProxyServiceBridge.state
 
     actual fun start(subscriptionId: String?) {
+        val id = resolveStartSubscriptionId(subscriptionId) ?: return
         val mode = getTunMode()
-        val intent = buildServiceIntent(mode, "START")
-        subscriptionId?.let { intent.putExtra("subscription_id", it) }
+        val intent = buildServiceIntent(mode, "START").apply {
+            putExtra(EXTRA_SUBSCRIPTION_ID, id)
+        }
         context.startForegroundService(intent)
     }
 
     actual fun restart(subscriptionId: String?) {
+        val id = resolveStartSubscriptionId(subscriptionId) ?: return
         // 优先读 bridge：代理运行中时它反映实际 Service；否则读 storage（用户最新选择）
         val mode = activeModeOrStored()
-        val intent = buildServiceIntent(mode, "RESTART")
-        subscriptionId?.let { intent.putExtra("subscription_id", it) }
+        val intent = buildServiceIntent(mode, "RESTART").apply {
+            putExtra(EXTRA_SUBSCRIPTION_ID, id)
+        }
         context.startService(intent)
     }
 
@@ -31,6 +36,44 @@ actual class ProxyServiceController(private val context: Context) {
         val mode = activeModeOrStored()
         val intent = buildServiceIntent(mode, "STOP")
         context.startService(intent)
+    }
+
+    /**
+     * 启动前的订阅校验统一入口。校验失败时 toast、emit Bridge.Error，并在代理仍 Running 时
+     * 同步发 STOP 让状态自洽。HomeUiState.errorMessage 当前未在 UI 展示，因此 Toast 必要。
+     */
+    fun resolveStartSubscriptionId(subscriptionId: String? = null): String? {
+        val effective = subscriptionId
+            ?: storage.getString(StorageKeys.ACTIVE_PROFILE_UUID, "").ifEmpty { null }
+        val configValid = effective != null &&
+                File(context.filesDir, "mihomo/imported/$effective/config.yaml").let {
+                    it.isFile && it.length() > 0
+                }
+        if (configValid) return effective
+
+        val msg = noActiveProfileMessage()
+        showToast(msg, long = true)
+        val mode = activeModeOrStored()
+        val wasRunning = ProxyServiceBridge.state.value.state == ProxyState.Running
+        ProxyServiceBridge.updateState(
+            ProxyServiceStatus(
+                state = ProxyState.Error,
+                errorMessage = msg,
+                tunMode = mode,
+            )
+        )
+        if (wasRunning) {
+            context.startService(buildServiceIntent(mode, "STOP"))
+        }
+        // 防止 Boot/升级路径在订阅缺失下被 BootReceiver 反复触发
+        storage.putString(StorageKeys.SERVICE_WAS_RUNNING, "false")
+        return null
+    }
+
+    // shared/androidMain 无法直接依赖 :android 的 R 类，走 getIdentifier 反射
+    private fun noActiveProfileMessage(): String {
+        val id = context.resources.getIdentifier("error_no_active_profile", "string", context.packageName)
+        return if (id != 0) context.getString(id) else "No active subscription"
     }
 
     /**
@@ -128,8 +171,7 @@ actual class ProxyServiceController(private val context: Context) {
         if (wasRunning && (currentMode == TunMode.RootTun || currentMode == TunMode.RootTproxy)) {
             val hasPid = storage.getString(StorageKeys.ROOT_MIHOMO_PID, "").isNotEmpty()
             if (hasPid) {
-                val subscriptionId = storage.getString(StorageKeys.ACTIVE_PROFILE_UUID, "").ifEmpty { null }
-                start(subscriptionId)
+                start()
                 return
             }
             storage.putString(StorageKeys.SERVICE_WAS_RUNNING, "false")
@@ -142,5 +184,6 @@ actual class ProxyServiceController(private val context: Context) {
 
     companion object {
         const val VPN_REQUEST_CODE = 1001
+        const val EXTRA_SUBSCRIPTION_ID = "subscription_id"
     }
 }

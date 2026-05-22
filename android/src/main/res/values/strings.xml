@@ -52,4 +52,5 @@
     <string name="error_fd_setup_failed">Failed to prepare TUN file descriptor: %1$s</string>
     <string name="error_tun_init_failed">TUN init failed: %1$s</string>
     <string name="error_tproxy_unsupported">ROOT TPROXY requires kernel xt_TPROXY/xt_socket modules which are not available on this device</string>
+    <string name="error_no_active_profile">No active subscription. Please import a subscription before starting the proxy.</string>
 </resources>

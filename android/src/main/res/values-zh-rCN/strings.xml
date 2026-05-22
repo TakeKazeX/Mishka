@@ -50,4 +50,5 @@
     <string name="error_fd_setup_failed">TUN 文件描述符准备失败: %1$s</string>
     <string name="error_tun_init_failed">TUN 初始化失败: %1$s</string>
     <string name="error_tproxy_unsupported">ROOT TPROXY 模式需要内核 xt_TPROXY / xt_socket 模块，当前设备不支持</string>
+    <string name="error_no_active_profile">没有可用的订阅，请先导入订阅再启动代理</string>
 </resources>
