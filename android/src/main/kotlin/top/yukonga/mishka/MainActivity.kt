@@ -260,7 +260,7 @@ class MainActivity : ComponentActivity() {
         val am = getSystemService(ACTIVITY_SERVICE) as ActivityManager
         val currentTaskId = taskId
         am.appTasks
-            .firstOrNull { it.taskInfo.id == currentTaskId }
+            .firstOrNull { it.taskInfo?.taskId == currentTaskId }
             ?.setExcludeFromRecents(exclude)
     }
 
