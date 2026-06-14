@@ -105,6 +105,9 @@ class HomeViewModel(
     private var mihomoPid: Int = -1
     private val systemInfo = PlatformSystemInfo()
 
+    // 订阅切换发生在代理 Starting 窗口内时挂起，等状态切到 Running 再重启（见 onActiveSubscriptionChanged）
+    private var pendingRestartOnRunning = false
+
     init {
         // 状态机仅维护 UI 状态字段（isStarting / isRunning / startTime / mihomoPid / errorMessage）
         // mihomo 客户端实例由 connectionManager 统一持有，HomeViewModel 不再自建
@@ -129,6 +132,11 @@ class HomeViewModel(
                         )
                         startTime = if (status.startTime > 0) status.startTime else Clock.System.now().toEpochMilliseconds()
                         mihomoPid = status.mihomoPid
+                        // 启动窗口内切过订阅：此刻代理已就绪，安全地重启切到新 active（不与启动协程并发）
+                        if (pendingRestartOnRunning) {
+                            pendingRestartOnRunning = false
+                            restartProxy()
+                        }
                     }
 
                     ProxyState.Stopping -> {
@@ -302,6 +310,8 @@ class HomeViewModel(
         _memoryState.value = MemorySnapshot()
         _systemInfoState.value = SystemInfoSnapshot()
         _uptimeState.value = -1L
+        // 代理已停止/出错：丢弃挂起的切换重启，避免下次启动到 Running 时触发意外重启
+        pendingRestartOnRunning = false
     }
 
     fun startProxy() {
@@ -319,6 +329,23 @@ class HomeViewModel(
 
     fun restartProxy() {
         serviceController.restart(getActiveSubscriptionId())
+    }
+
+    /**
+     * 订阅切换后调用：把运行中的代理切到新 active 订阅。基于权威的 `serviceController.status`
+     * （ProxyServiceBridge）状态决策，而非滞后的 `uiState.isRunning`——后者在代理 Starting
+     * 窗口（启动后约 10s）内仍为 false，会漏掉重启导致「界面显示新订阅、代理仍跑旧订阅」。
+     * Starting/Stopping 过渡态先记挂起标志，待状态切到 Running 再重启，避免在 Service 内与
+     * 启动中的协程并发重启产生竞态。
+     */
+    fun onActiveSubscriptionChanged() {
+        when (serviceController.status.value.state) {
+            ProxyState.Running -> restartProxy()
+            ProxyState.Starting, ProxyState.Stopping -> pendingRestartOnRunning = true
+            ProxyState.Stopped, ProxyState.Error -> {
+                // 无运行中代理：下次手动点"启动"会用新 active 订阅，无需处理
+            }
+        }
     }
 
     fun switchMode(mode: String) {

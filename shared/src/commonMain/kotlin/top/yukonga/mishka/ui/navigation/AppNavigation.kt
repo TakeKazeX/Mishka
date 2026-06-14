@@ -166,11 +166,7 @@ fun AppNavigation(
                         onBack = { navigator.pop() },
                         onNavigateAdd = { navigator.push(Route.SubscriptionAdd) },
                         onNavigateEdit = { uuid -> navigator.push(Route.SubscriptionEdit(uuid)) },
-                        onActiveChanged = {
-                            if (homeViewModel?.uiState?.value?.isRunning == true) {
-                                homeViewModel.restartProxy()
-                            }
-                        },
+                        onActiveChanged = { homeViewModel?.onActiveSubscriptionChanged() },
                     )
                 }
             }
@@ -439,11 +435,7 @@ private fun MainPage(
                         bottomPadding = bottomPadding,
                         onNavigateAdd = { navigator.push(Route.SubscriptionAdd) },
                         onNavigateEdit = { uuid -> navigator.push(Route.SubscriptionEdit(uuid)) },
-                        onActiveChanged = {
-                            if (homeViewModel?.uiState?.value?.isRunning == true) {
-                                homeViewModel.restartProxy()
-                            }
-                        },
+                        onActiveChanged = { homeViewModel?.onActiveSubscriptionChanged() },
                     )
                 }
 

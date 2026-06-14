@@ -36,8 +36,6 @@ class ProfileProcessor(
     private val proxyResolver: SubscriptionProxyResolver,
 ) {
 
-    private val processLock = Mutex()
-
     suspend fun apply(uuid: String, onProgress: (ImportProgress) -> Unit = {}) {
         runProcess(uuid, isUpdate = false, onProgress)
     }
@@ -149,6 +147,25 @@ class ProfileProcessor(
 
         "Verifying" -> ImportProgress(getString(Res.string.subscription_validating))
         else -> ImportProgress(p.action)
+    }
+
+    companion object {
+        /**
+         * 进程级处理锁。processing/ 是进程内单例沙箱目录，但前台 SubscriptionViewModel 与后台
+         * ProfileWorker 各自构造独立的 ProfileProcessor 实例。锁若是实例级，两个实例的 update/apply
+         * 会并发清空并复用同一个 processing/：一个订阅下载的 config 被提交进另一个订阅的
+         * imported/{uuid}/，造成「界面显示订阅 A、实际运行订阅 B」。锁必须进程级共享，真正串行化
+         * 对 processing/ 的「清空 → 下载 → 提交」全过程。
+         */
+        private val processLock = Mutex()
+
+        /**
+         * 清理 processing/ 残留（应用启动时调用）。必须与 [runProcess] 持同一把进程级锁，否则会
+         * 擦掉后台 ProfileWorker 正在进行的更新写到 processing/ 的内容。
+         */
+        suspend fun cleanupResidual(fileManager: ProfileFileManager) = processLock.withLock {
+            fileManager.cleanupProcessing()
+        }
     }
 }
 

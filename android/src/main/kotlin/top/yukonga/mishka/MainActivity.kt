@@ -24,6 +24,7 @@ import io.github.g00fy2.quickie.config.ScannerConfig
 import kotlinx.coroutines.launch
 import top.yukonga.mishka.data.database.getAppDatabase
 import top.yukonga.mishka.data.repository.OverrideJsonStore
+import top.yukonga.mishka.data.repository.ProfileProcessor
 import top.yukonga.mishka.data.repository.SubscriptionRepository
 import top.yukonga.mishka.platform.AppListProvider
 import top.yukonga.mishka.platform.BootStartManager
@@ -32,7 +33,6 @@ import top.yukonga.mishka.platform.PlatformStorage
 import top.yukonga.mishka.platform.ProxyServiceController
 import top.yukonga.mishka.platform.StorageKeys
 import top.yukonga.mishka.service.AndroidProfileFileManager
-import top.yukonga.mishka.service.ProfileFileOps
 import top.yukonga.mishka.service.RootHelper
 import top.yukonga.mishka.viewmodel.AppProxyViewModel
 import top.yukonga.mishka.viewmodel.ConnectionViewModel
@@ -119,7 +119,12 @@ class MainActivity : ComponentActivity() {
 
         val storage = PlatformStorage(this)
         val database = getAppDatabase(this)
-        ProfileFileOps.cleanupProcessing(this)
+        val fileManager = AndroidProfileFileManager(this)
+        // 清理 processing/ 残留：经 ProfileProcessor 的进程级锁串行，避免擦掉后台 ProfileWorker
+        // 正在进行的更新写到 processing/ 的内容
+        lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            ProfileProcessor.cleanupResidual(fileManager)
+        }
         top.yukonga.mishka.platform.IconDiskCache.init(this)
         serviceController = ProxyServiceController(this)
         filePicker = FilePicker(this)
@@ -127,7 +132,6 @@ class MainActivity : ComponentActivity() {
         providerViewModel = ProviderViewModel()
         connectionViewModel = ConnectionViewModel()
         dnsQueryViewModel = DnsQueryViewModel()
-        val fileManager = AndroidProfileFileManager(this)
         val overrideStore = OverrideJsonStore(fileManager)
         networkSettingsViewModel = NetworkSettingsViewModel(overrideStore)
         metaSettingsViewModel = MetaSettingsViewModel(overrideStore)
