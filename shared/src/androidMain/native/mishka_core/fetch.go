@@ -37,12 +37,10 @@ type FetchProgress struct {
 }
 
 type FetchResult struct {
-	Upload         int64 `json:"upload"`
-	Download       int64 `json:"download"`
-	Total          int64 `json:"total"`
-	Expire         int64 `json:"expire"`
-	UpdateInterval int64 `json:"updateInterval"`
-	HasUserinfo    bool  `json:"hasUserinfo"`
+	Upload   int64 `json:"upload"`
+	Download int64 `json:"download"`
+	Total    int64 `json:"total"`
+	Expire   int64 `json:"expire"`
 }
 
 //export mishkaFetchAndValid
@@ -186,11 +184,6 @@ func fetchURL(ctx context.Context, u *url.URL, dest string, result *FetchResult,
 	}
 
 	parseUserinfo(resp.Header.Get("subscription-userinfo"), result)
-	if iv := resp.Header.Get("profile-update-interval"); iv != "" {
-		if hours, err := strconv.ParseInt(iv, 10, 64); err == nil {
-			result.UpdateInterval = hours * 3600
-		}
-	}
 
 	if err := os.MkdirAll(P.Dir(dest), 0700); err != nil {
 		return err
@@ -229,16 +222,12 @@ func parseUserinfo(header string, result *FetchResult) {
 		switch strings.ToLower(kv[0]) {
 		case "upload":
 			result.Upload = v
-			result.HasUserinfo = true
 		case "download":
 			result.Download = v
-			result.HasUserinfo = true
 		case "total":
 			result.Total = v
-			result.HasUserinfo = true
 		case "expire":
 			result.Expire = v
-			result.HasUserinfo = true
 		}
 	}
 }
