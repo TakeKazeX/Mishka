@@ -11,7 +11,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -311,25 +313,39 @@ fun MetaSettingsScreen(
     ) {
         if (agePair != null) {
             Column(modifier = Modifier.fillMaxWidth()) {
-                SmallTitle(text = stringResource(Res.string.meta_age_secret_key))
-                Text(
-                    text = agePair.secretKey,
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 12.sp,
-                    color = MiuixTheme.colorScheme.onSurface,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
-                )
-                SmallTitle(text = stringResource(Res.string.meta_age_public_key))
-                Text(
-                    text = agePair.publicKey,
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 12.sp,
-                    color = MiuixTheme.colorScheme.onSurface,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
-                )
+                // 密钥内容可滚动，按钮固定在底部
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f, fill = false)
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    SmallTitle(
+                        text = stringResource(Res.string.meta_age_secret_key),
+                        insideMargin = PaddingValues(vertical = 8.dp),
+                    )
+                    Text(
+                        text = agePair.secretKey,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 12.sp,
+                        color = MiuixTheme.colorScheme.onSurface,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    )
+                    SmallTitle(
+                        text = stringResource(Res.string.meta_age_public_key),
+                        insideMargin = PaddingValues(vertical = 8.dp),
+                    )
+                    Text(
+                        text = agePair.publicKey,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 12.sp,
+                        color = MiuixTheme.colorScheme.onSurface,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    )
+                }
                 Spacer(Modifier.height(12.dp))
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     TextButton(
@@ -351,7 +367,7 @@ fun MetaSettingsScreen(
                 }
                 TextButton(
                     text = stringResource(Res.string.common_close),
-                    modifier = Modifier.fillMaxWidth().padding(12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
                     onClick = { showAgeDialog = false },
                 )
             }

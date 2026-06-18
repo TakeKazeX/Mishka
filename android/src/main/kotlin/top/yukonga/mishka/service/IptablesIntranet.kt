@@ -1,10 +1,7 @@
 package top.yukonga.mishka.service
 
 /**
- * 局域网 / 保留网段 CIDR 列表，供 TPROXY 相关规则 `-d <cidr> -j RETURN` 使用，
- * 避免把内网流量劫持到 mihomo。
- *
- * 选值对齐 box_for_magisk / Surfing / box4magisk 三家 Magisk 代理模块的共识值，
+ * 局域网 / 保留网段 CIDR 列表，避免把内网流量劫持到 mihomo。
  * 涵盖 RFC1918、RFC6598、loopback、组播、保留段、文档段、广播段。
  */
 internal object IptablesIntranet {
