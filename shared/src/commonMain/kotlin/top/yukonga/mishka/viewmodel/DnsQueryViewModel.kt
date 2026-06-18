@@ -1,7 +1,11 @@
 package top.yukonga.mishka.viewmodel
 
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -9,10 +13,11 @@ import kotlinx.coroutines.launch
 import top.yukonga.mishka.data.model.DnsAnswer
 import top.yukonga.mishka.data.repository.MihomoRepository
 
+@Immutable
 data class DnsQueryUiState(
     val queryName: String = "",
     val queryType: String = "A",
-    val answers: List<DnsAnswer> = emptyList(),
+    val answers: ImmutableList<DnsAnswer> = persistentListOf(),
     val status: Int? = null,
     val isQuerying: Boolean = false,
     val error: String = "",
@@ -42,13 +47,13 @@ class DnsQueryViewModel : ViewModel() {
         val state = _uiState.value
         if (state.queryName.isBlank() || state.isQuerying) return
 
-        _uiState.value = state.copy(isQuerying = true, error = "", answers = emptyList(), status = null)
+        _uiState.value = state.copy(isQuerying = true, error = "", answers = persistentListOf(), status = null)
 
         viewModelScope.launch {
             repo.queryDns(state.queryName, state.queryType)
                 .onSuccess { response ->
                     _uiState.value = _uiState.value.copy(
-                        answers = response.Answer,
+                        answers = response.Answer.toPersistentList(),
                         status = response.Status,
                         isQuerying = false,
                     )

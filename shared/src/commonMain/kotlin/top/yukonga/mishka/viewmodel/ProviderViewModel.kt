@@ -1,7 +1,11 @@
 package top.yukonga.mishka.viewmodel
 
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -32,8 +36,9 @@ data class RefreshProgress(
     val singleName: String? = null,
 )
 
+@Immutable
 data class ProviderUiState(
-    val providers: List<ProviderItemUi> = emptyList(),
+    val providers: ImmutableList<ProviderItemUi> = persistentListOf(),
     val isLoading: Boolean = false,
     val error: String = "",
     val refresh: RefreshProgress? = null,
@@ -104,7 +109,7 @@ class ProviderViewModel : ViewModel() {
             // 代理 provider 排在规则 provider 前面；各自组内按 name 升序
             _uiState.update {
                 it.copy(
-                    providers = items.sortedWith(compareBy({ it.isRuleProvider }, { it.name })),
+                    providers = items.sortedWith(compareBy({ it.isRuleProvider }, { it.name })).toPersistentList(),
                     isLoading = false,
                 )
             }
