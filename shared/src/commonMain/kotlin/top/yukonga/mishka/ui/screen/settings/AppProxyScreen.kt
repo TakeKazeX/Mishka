@@ -92,6 +92,7 @@ import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.More
+import top.yukonga.miuix.kmp.preference.RadioButtonLocation
 import top.yukonga.miuix.kmp.preference.RadioButtonPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
@@ -184,103 +185,106 @@ fun AppProxyScreen(
                             }
                         },
                         actions = {
-                            IconButton(
-                                onClick = { showPopup.value = true },
-                                holdDownState = showPopup.value,
-                            ) {
-                                Icon(
-                                    imageVector = MiuixIcons.More,
-                                    contentDescription = stringResource(Res.string.common_more),
-                                    tint = MiuixTheme.colorScheme.onSurface,
-                                )
-                            }
+                            // 仅在非「允许所有应用」模式下显示菜单
+                            if (uiState.mode != AppProxyMode.AllowAll) {
+                                IconButton(
+                                    onClick = { showPopup.value = true },
+                                    holdDownState = showPopup.value,
+                                ) {
+                                    Icon(
+                                        imageVector = MiuixIcons.More,
+                                        contentDescription = stringResource(Res.string.common_more),
+                                        tint = MiuixTheme.colorScheme.onSurface,
+                                    )
+                                }
 
-                            // 顶栏下拉菜单
-                            WindowListPopup(
-                                show = showPopup.value,
-                                popupPositionProvider = MenuPositionProvider,
-                                alignment = PopupPositionProvider.Align.TopEnd,
-                                onDismissRequest = { showPopup.value = false },
-                            ) {
-                                ListPopupColumn {
-                                    DropdownImpl(
-                                        text = stringResource(Res.string.app_proxy_select_all),
-                                        optionSize = 6,
-                                        isSelected = false,
-                                        index = 0,
-                                        onSelectedIndexChange = {
-                                            viewModel.selectAll()
-                                            showPopup.value = false
-                                        },
-                                    )
-                                    DropdownImpl(
-                                        text = stringResource(Res.string.app_proxy_deselect_all),
-                                        optionSize = 6,
-                                        isSelected = false,
-                                        index = 1,
-                                        onSelectedIndexChange = {
-                                            viewModel.deselectAll()
-                                            showPopup.value = false
-                                        },
-                                    )
-                                    DropdownImpl(
-                                        text = stringResource(Res.string.app_proxy_invert),
-                                        optionSize = 6,
-                                        isSelected = false,
-                                        index = 2,
-                                        onSelectedIndexChange = {
-                                            viewModel.invertSelection()
-                                            showPopup.value = false
-                                        },
-                                    )
-                                    HorizontalDivider(
-                                        modifier = Modifier
-                                            .padding(horizontal = 20.dp)
-                                            .fillMaxWidth(),
-                                    )
-                                    DropdownImpl(
-                                        text = if (uiState.showSystemApps) stringResource(Res.string.app_proxy_hide_system) else stringResource(
-                                            Res.string.app_proxy_show_system
-                                        ),
-                                        optionSize = 6,
-                                        isSelected = uiState.showSystemApps,
-                                        index = 3,
-                                        onSelectedIndexChange = {
-                                            viewModel.setShowSystemApps(!uiState.showSystemApps)
-                                            showPopup.value = false
-                                        },
-                                    )
-                                    HorizontalDivider(
-                                        modifier = Modifier
-                                            .padding(horizontal = 20.dp)
-                                            .fillMaxWidth(),
-                                    )
-                                    DropdownImpl(
-                                        text = stringResource(Res.string.app_proxy_import),
-                                        optionSize = 6,
-                                        isSelected = false,
-                                        index = 4,
-                                        onSelectedIndexChange = {
-                                            val text = clipboardManager.getText()?.text
-                                            if (!text.isNullOrBlank()) {
-                                                viewModel.importPackages(text)
-                                            }
-                                            showPopup.value = false
-                                        },
-                                    )
-                                    DropdownImpl(
-                                        text = stringResource(Res.string.app_proxy_export),
-                                        optionSize = 6,
-                                        isSelected = false,
-                                        index = 5,
-                                        onSelectedIndexChange = {
-                                            val exported = viewModel.exportPackages()
-                                            if (exported.isNotEmpty()) {
-                                                clipboardManager.setText(AnnotatedString(exported))
-                                            }
-                                            showPopup.value = false
-                                        },
-                                    )
+                                // 顶栏下拉菜单
+                                WindowListPopup(
+                                    show = showPopup.value,
+                                    popupPositionProvider = MenuPositionProvider,
+                                    alignment = PopupPositionProvider.Align.TopEnd,
+                                    onDismissRequest = { showPopup.value = false },
+                                ) {
+                                    ListPopupColumn {
+                                        DropdownImpl(
+                                            text = stringResource(Res.string.app_proxy_select_all),
+                                            optionSize = 6,
+                                            isSelected = false,
+                                            index = 0,
+                                            onSelectedIndexChange = {
+                                                viewModel.selectAll()
+                                                showPopup.value = false
+                                            },
+                                        )
+                                        DropdownImpl(
+                                            text = stringResource(Res.string.app_proxy_deselect_all),
+                                            optionSize = 6,
+                                            isSelected = false,
+                                            index = 1,
+                                            onSelectedIndexChange = {
+                                                viewModel.deselectAll()
+                                                showPopup.value = false
+                                            },
+                                        )
+                                        DropdownImpl(
+                                            text = stringResource(Res.string.app_proxy_invert),
+                                            optionSize = 6,
+                                            isSelected = false,
+                                            index = 2,
+                                            onSelectedIndexChange = {
+                                                viewModel.invertSelection()
+                                                showPopup.value = false
+                                            },
+                                        )
+                                        HorizontalDivider(
+                                            modifier = Modifier
+                                                .padding(horizontal = 20.dp, vertical = 4.dp),
+                                            thickness = 1.5.dp,
+                                        )
+                                        DropdownImpl(
+                                            text = if (uiState.showSystemApps) stringResource(Res.string.app_proxy_hide_system) else stringResource(
+                                                Res.string.app_proxy_show_system
+                                            ),
+                                            optionSize = 6,
+                                            isSelected = uiState.showSystemApps,
+                                            index = 3,
+                                            onSelectedIndexChange = {
+                                                viewModel.setShowSystemApps(!uiState.showSystemApps)
+                                                showPopup.value = false
+                                            },
+                                        )
+                                        HorizontalDivider(
+                                            modifier = Modifier
+                                                .padding(horizontal = 20.dp, vertical = 4.dp),
+                                            thickness = 1.5.dp,
+                                        )
+                                        DropdownImpl(
+                                            text = stringResource(Res.string.app_proxy_import),
+                                            optionSize = 6,
+                                            isSelected = false,
+                                            index = 4,
+                                            onSelectedIndexChange = {
+                                                val text = clipboardManager.getText()?.text
+                                                if (!text.isNullOrBlank()) {
+                                                    viewModel.importPackages(text)
+                                                }
+                                                showPopup.value = false
+                                            },
+                                        )
+                                        DropdownImpl(
+                                            text = stringResource(Res.string.app_proxy_export),
+                                            optionSize = 6,
+                                            isSelected = false,
+                                            index = 5,
+                                            onSelectedIndexChange = {
+                                                val exported = viewModel.exportPackages()
+                                                if (exported.isNotEmpty()) {
+                                                    clipboardManager.setText(AnnotatedString(exported))
+                                                }
+                                                showPopup.value = false
+                                            },
+                                        )
+                                    }
                                 }
                             }
                         },
@@ -393,18 +397,21 @@ fun AppProxyScreen(
                             summary = stringResource(Res.string.app_proxy_allow_all_summary),
                             selected = uiState.mode == AppProxyMode.AllowAll,
                             onClick = { viewModel.setMode(AppProxyMode.AllowAll) },
+                            radioButtonLocation = RadioButtonLocation.End,
                         )
                         RadioButtonPreference(
                             title = stringResource(Res.string.app_proxy_allow_selected),
                             summary = stringResource(Res.string.app_proxy_allow_selected_summary),
                             selected = uiState.mode == AppProxyMode.AllowSelected,
                             onClick = { viewModel.setMode(AppProxyMode.AllowSelected) },
+                            radioButtonLocation = RadioButtonLocation.End,
                         )
                         RadioButtonPreference(
                             title = stringResource(Res.string.app_proxy_deny_selected),
                             summary = stringResource(Res.string.app_proxy_deny_selected_summary),
                             selected = uiState.mode == AppProxyMode.DenySelected,
                             onClick = { viewModel.setMode(AppProxyMode.DenySelected) },
+                            radioButtonLocation = RadioButtonLocation.End,
                         )
                     }
                 }

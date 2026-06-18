@@ -3,10 +3,8 @@ package top.yukonga.mishka.platform
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -14,13 +12,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import top.yukonga.mishka.util.AppIconCache
+import top.yukonga.miuix.kmp.squircle.squircleBackground
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -69,8 +67,7 @@ actual fun AppIcon(
                     Box(
                         modifier = Modifier
                             .size(size)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(MiuixTheme.colorScheme.secondaryContainer),
+                            .squircleBackground(MiuixTheme.colorScheme.secondaryContainer, 8.dp),
                     )
                 }
             }

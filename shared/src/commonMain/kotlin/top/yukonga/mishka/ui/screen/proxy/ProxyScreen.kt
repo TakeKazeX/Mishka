@@ -95,6 +95,9 @@ import top.yukonga.miuix.kmp.icon.basic.ArrowRight
 import top.yukonga.miuix.kmp.icon.extended.More
 import top.yukonga.miuix.kmp.icon.extended.Refresh
 import top.yukonga.miuix.kmp.icon.extended.Sort
+import top.yukonga.miuix.kmp.squircle.squircleBackground
+import top.yukonga.miuix.kmp.squircle.squircleClip
+import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
@@ -442,7 +445,7 @@ private fun GroupIcon(
                 contentDescription = name,
                 modifier = Modifier
                     .size(36.dp)
-                    .clip(RoundedCornerShape(8.dp)),
+                    .squircleClip(8.dp),
             )
         } else {
             DefaultGroupIcon(name)
@@ -457,8 +460,7 @@ private fun DefaultGroupIcon(name: String) {
     Box(
         modifier = Modifier
             .size(36.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(MiuixTheme.colorScheme.primary.copy(alpha = 0.1f)),
+            .squircleBackground(MiuixTheme.colorScheme.primary.copy(alpha = 0.1f), 8.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -555,10 +557,14 @@ private fun ProxyNodeCard(
 
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(backgroundColor)
             .then(
-                if (isSelectable) Modifier.clickable(onClick = onClick) else Modifier
+                if (isSelectable) {
+                    Modifier
+                        .squircleSurface(color = backgroundColor, cornerRadius = 12.dp)
+                        .clickable(onClick = onClick)
+                } else {
+                    Modifier.squircleBackground(color = backgroundColor, cornerRadius = 12.dp)
+                }
             )
             .padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 12.dp),
     ) {
