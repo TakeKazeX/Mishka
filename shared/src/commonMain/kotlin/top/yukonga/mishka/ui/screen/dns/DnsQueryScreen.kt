@@ -48,6 +48,8 @@ import mishka.shared.generated.resources.dns_results
 import mishka.shared.generated.resources.dns_title
 import org.jetbrains.compose.resources.stringResource
 import top.yukonga.mishka.data.model.DnsAnswer
+import top.yukonga.mishka.ui.component.CardItem
+import top.yukonga.mishka.ui.component.groupedCardItems
 import top.yukonga.mishka.ui.component.blur.BlurredBar
 import top.yukonga.mishka.ui.component.blur.rememberBlurBackdrop
 import top.yukonga.mishka.viewmodel.DnsQueryViewModel
@@ -251,18 +253,16 @@ fun DnsQueryScreen(
                         }
                     }
                 } else {
-                    item(key = "result_card") {
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp)
-                                .padding(bottom = 12.dp),
-                        ) {
-                            uiState.answers.forEach { answer ->
+                    // 每条 DNS 记录独立成段，视觉上仍拼为一张连续卡片；记录多时只组合可见段
+                    groupedCardItems(
+                        keyPrefix = "dns_result",
+                        outerBottomPadding = 12.dp,
+                        items = uiState.answers.mapIndexed { index, answer ->
+                            CardItem("$index:${answer.data}") {
                                 DnsAnswerItem(answer)
                             }
-                        }
-                    }
+                        },
+                    )
                 }
             }
 

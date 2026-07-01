@@ -37,9 +37,10 @@ import mishka.shared.generated.resources.vpn_tunnel
 import org.jetbrains.compose.resources.stringResource
 import top.yukonga.mishka.platform.PlatformStorage
 import top.yukonga.mishka.platform.StorageKeys
+import top.yukonga.mishka.ui.component.CardItem
+import top.yukonga.mishka.ui.component.groupedCardItems
 import top.yukonga.mishka.ui.component.blur.BlurredBar
 import top.yukonga.mishka.ui.component.blur.rememberBlurBackdrop
-import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
@@ -108,59 +109,69 @@ fun VpnSettingsScreen(
             ),
         ) {
             item { SmallTitle(text = stringResource(Res.string.vpn_tunnel)) }
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
-                ) {
-                    SwitchPreference(
-                        title = stringResource(Res.string.vpn_bypass_private),
-                        summary = stringResource(Res.string.vpn_bypass_private_summary),
-                        checked = bypassPrivate,
-                        onCheckedChange = {
-                            bypassPrivate = it
-                            storage.putString(StorageKeys.VPN_BYPASS_PRIVATE_NETWORK, it.toString())
-                        },
-                    )
-                    SwitchPreference(
-                        title = stringResource(Res.string.vpn_allow_bypass),
-                        summary = stringResource(Res.string.vpn_allow_bypass_summary),
-                        checked = allowBypass,
-                        onCheckedChange = {
-                            allowBypass = it
-                            storage.putString(StorageKeys.VPN_ALLOW_BYPASS, it.toString())
-                        },
-                    )
-                    SwitchPreference(
-                        title = stringResource(Res.string.vpn_dns_hijacking),
-                        summary = stringResource(Res.string.vpn_dns_hijacking_summary),
-                        checked = dnsHijacking,
-                        onCheckedChange = {
-                            dnsHijacking = it
-                            storage.putString(StorageKeys.VPN_DNS_HIJACKING, it.toString())
-                        },
-                    )
-                    if (isSystemProxySupported) {
+            groupedCardItems(
+                keyPrefix = "vpn_tunnel",
+                outerBottomPadding = 0.dp,
+                items = buildList {
+                    add(CardItem("bypassPrivate") {
                         SwitchPreference(
-                            title = stringResource(Res.string.vpn_system_proxy),
-                            summary = stringResource(Res.string.vpn_system_proxy_summary),
-                            checked = systemProxy,
+                            title = stringResource(Res.string.vpn_bypass_private),
+                            summary = stringResource(Res.string.vpn_bypass_private_summary),
+                            checked = bypassPrivate,
                             onCheckedChange = {
-                                systemProxy = it
-                                storage.putString(StorageKeys.VPN_SYSTEM_PROXY, it.toString())
+                                bypassPrivate = it
+                                storage.putString(StorageKeys.VPN_BYPASS_PRIVATE_NETWORK, it.toString())
                             },
                         )
+                    })
+                    add(CardItem("allowBypass") {
+                        SwitchPreference(
+                            title = stringResource(Res.string.vpn_allow_bypass),
+                            summary = stringResource(Res.string.vpn_allow_bypass_summary),
+                            checked = allowBypass,
+                            onCheckedChange = {
+                                allowBypass = it
+                                storage.putString(StorageKeys.VPN_ALLOW_BYPASS, it.toString())
+                            },
+                        )
+                    })
+                    add(CardItem("dnsHijacking") {
+                        SwitchPreference(
+                            title = stringResource(Res.string.vpn_dns_hijacking),
+                            summary = stringResource(Res.string.vpn_dns_hijacking_summary),
+                            checked = dnsHijacking,
+                            onCheckedChange = {
+                                dnsHijacking = it
+                                storage.putString(StorageKeys.VPN_DNS_HIJACKING, it.toString())
+                            },
+                        )
+                    })
+                    if (isSystemProxySupported) {
+                        add(CardItem("systemProxy") {
+                            SwitchPreference(
+                                title = stringResource(Res.string.vpn_system_proxy),
+                                summary = stringResource(Res.string.vpn_system_proxy_summary),
+                                checked = systemProxy,
+                                onCheckedChange = {
+                                    systemProxy = it
+                                    storage.putString(StorageKeys.VPN_SYSTEM_PROXY, it.toString())
+                                },
+                            )
+                        })
                     }
-                    SwitchPreference(
-                        title = stringResource(Res.string.vpn_allow_ipv6),
-                        summary = stringResource(Res.string.vpn_allow_ipv6_summary),
-                        checked = allowIpv6,
-                        onCheckedChange = {
-                            allowIpv6 = it
-                            storage.putString(StorageKeys.VPN_ALLOW_IPV6, it.toString())
-                        },
-                    )
-                }
-            }
+                    add(CardItem("allowIpv6") {
+                        SwitchPreference(
+                            title = stringResource(Res.string.vpn_allow_ipv6),
+                            summary = stringResource(Res.string.vpn_allow_ipv6_summary),
+                            checked = allowIpv6,
+                            onCheckedChange = {
+                                allowIpv6 = it
+                                storage.putString(StorageKeys.VPN_ALLOW_IPV6, it.toString())
+                            },
+                        )
+                    })
+                },
+            )
             item { Spacer(Modifier.height(24.dp).navigationBarsPadding()) }
         }
     }

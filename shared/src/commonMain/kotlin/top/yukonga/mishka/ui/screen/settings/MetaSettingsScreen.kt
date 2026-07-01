@@ -69,13 +69,14 @@ import top.yukonga.mishka.data.bridge.MishkaCoreBridge
 import top.yukonga.mishka.data.model.ConfigurationOverride
 import top.yukonga.mishka.data.model.SnifferOverride
 import top.yukonga.mishka.platform.showToast
+import top.yukonga.mishka.ui.component.CardItem
 import top.yukonga.mishka.ui.component.ListEditDialog
 import top.yukonga.mishka.ui.component.RestartRequiredHint
 import top.yukonga.mishka.ui.component.TriStatePreference
 import top.yukonga.mishka.ui.component.blur.BlurredBar
 import top.yukonga.mishka.ui.component.blur.rememberBlurBackdrop
+import top.yukonga.mishka.ui.component.groupedCardItems
 import top.yukonga.mishka.viewmodel.MetaSettingsViewModel
-import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
@@ -127,6 +128,17 @@ fun MetaSettingsScreen(
 
     val sniffer = uiState.sniffer
 
+    val failedMsg = stringResource(Res.string.meta_age_keygen_failed)
+    val genKey: (Boolean) -> Unit = { hybrid ->
+        val pair = MishkaCoreBridge.generateAgeKeyPair(hybrid)
+        if (pair != null) {
+            ageKeyPair = pair
+            showAgeDialog = true
+        } else {
+            showToast(failedMsg)
+        }
+    }
+
     val backdrop = rememberBlurBackdrop()
     val blurActive = backdrop != null
     val barColor = if (blurActive) Color.Transparent else MiuixTheme.colorScheme.surface
@@ -170,120 +182,122 @@ fun MetaSettingsScreen(
 
             // === 基本 ===
             item { SmallTitle(text = stringResource(Res.string.meta_basic)) }
-            item {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp)
-                        .padding(bottom = 6.dp),
-                ) {
-                    TriStatePreference(
-                        title = stringResource(Res.string.meta_unified_delay),
-                        value = uiState.unifiedDelay,
-                        onValueChange = { v -> updateTop { it.copy(unifiedDelay = v) } },
-                    )
-                    TriStatePreference(
-                        title = stringResource(Res.string.meta_geodata_mode),
-                        value = uiState.geodataMode,
-                        onValueChange = { v -> updateTop { it.copy(geodataMode = v) } },
-                    )
-                    TriStatePreference(
-                        title = stringResource(Res.string.meta_tcp_concurrent),
-                        value = uiState.tcpConcurrent,
-                        onValueChange = { v -> updateTop { it.copy(tcpConcurrent = v) } },
-                    )
-                    FindProcessModePreference(
-                        value = uiState.findProcessMode,
-                        onValueChange = { v -> updateTop { it.copy(findProcessMode = v) } },
-                    )
-                }
-            }
+            groupedCardItems(
+                keyPrefix = "meta_basic",
+                items = listOf(
+                    CardItem("unifiedDelay") {
+                        TriStatePreference(
+                            title = stringResource(Res.string.meta_unified_delay),
+                            value = uiState.unifiedDelay,
+                            onValueChange = { v -> updateTop { it.copy(unifiedDelay = v) } },
+                        )
+                    },
+                    CardItem("geodataMode") {
+                        TriStatePreference(
+                            title = stringResource(Res.string.meta_geodata_mode),
+                            value = uiState.geodataMode,
+                            onValueChange = { v -> updateTop { it.copy(geodataMode = v) } },
+                        )
+                    },
+                    CardItem("tcpConcurrent") {
+                        TriStatePreference(
+                            title = stringResource(Res.string.meta_tcp_concurrent),
+                            value = uiState.tcpConcurrent,
+                            onValueChange = { v -> updateTop { it.copy(tcpConcurrent = v) } },
+                        )
+                    },
+                    CardItem("findProcessMode") {
+                        FindProcessModePreference(
+                            value = uiState.findProcessMode,
+                            onValueChange = { v -> updateTop { it.copy(findProcessMode = v) } },
+                        )
+                    },
+                ),
+            )
 
             // === 嗅探器 ===
             item { SmallTitle(text = stringResource(Res.string.meta_sniffer)) }
-            item {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp)
-                        .padding(bottom = 6.dp),
-                ) {
-                    TriStatePreference(
-                        title = stringResource(Res.string.meta_sniffer_enable),
-                        value = sniffer?.enable,
-                        onValueChange = { v -> updateSniffer { it.copy(enable = v) } },
-                    )
-                    TriStatePreference(
-                        title = stringResource(Res.string.meta_sniffer_force_dns_mapping),
-                        value = sniffer?.forceDnsMapping,
-                        onValueChange = { v -> updateSniffer { it.copy(forceDnsMapping = v) } },
-                    )
-                    TriStatePreference(
-                        title = stringResource(Res.string.meta_sniffer_parse_pure_ip),
-                        value = sniffer?.parsePureIp,
-                        onValueChange = { v -> updateSniffer { it.copy(parsePureIp = v) } },
-                    )
-                    TriStatePreference(
-                        title = stringResource(Res.string.meta_sniffer_override_dest),
-                        value = sniffer?.overrideDestination,
-                        onValueChange = { v -> updateSniffer { it.copy(overrideDestination = v) } },
-                    )
-                    val forceDomainTitle = stringResource(Res.string.meta_sniffer_force_domain)
-                    ArrowPreference(
-                        title = forceDomainTitle,
-                        summary = listSummary(sniffer?.forceDomain),
-                        onClick = {
-                            openListDialog(
-                                forceDomainTitle,
-                                sniffer?.forceDomain
-                            ) { v -> updateSniffer { it.copy(forceDomain = v) } }
-                        },
-                    )
-                    val skipDomainTitle = stringResource(Res.string.meta_sniffer_skip_domain)
-                    ArrowPreference(
-                        title = skipDomainTitle,
-                        summary = listSummary(sniffer?.skipDomain),
-                        onClick = {
-                            openListDialog(
-                                skipDomainTitle,
-                                sniffer?.skipDomain
-                            ) { v -> updateSniffer { it.copy(skipDomain = v) } }
-                        },
-                    )
-                }
-            }
+            groupedCardItems(
+                keyPrefix = "meta_sniffer",
+                items = listOf(
+                    CardItem("enable") {
+                        TriStatePreference(
+                            title = stringResource(Res.string.meta_sniffer_enable),
+                            value = sniffer?.enable,
+                            onValueChange = { v -> updateSniffer { it.copy(enable = v) } },
+                        )
+                    },
+                    CardItem("forceDnsMapping") {
+                        TriStatePreference(
+                            title = stringResource(Res.string.meta_sniffer_force_dns_mapping),
+                            value = sniffer?.forceDnsMapping,
+                            onValueChange = { v -> updateSniffer { it.copy(forceDnsMapping = v) } },
+                        )
+                    },
+                    CardItem("parsePureIp") {
+                        TriStatePreference(
+                            title = stringResource(Res.string.meta_sniffer_parse_pure_ip),
+                            value = sniffer?.parsePureIp,
+                            onValueChange = { v -> updateSniffer { it.copy(parsePureIp = v) } },
+                        )
+                    },
+                    CardItem("overrideDest") {
+                        TriStatePreference(
+                            title = stringResource(Res.string.meta_sniffer_override_dest),
+                            value = sniffer?.overrideDestination,
+                            onValueChange = { v -> updateSniffer { it.copy(overrideDestination = v) } },
+                        )
+                    },
+                    CardItem("forceDomain") {
+                        val forceDomainTitle = stringResource(Res.string.meta_sniffer_force_domain)
+                        ArrowPreference(
+                            title = forceDomainTitle,
+                            summary = listSummary(sniffer?.forceDomain),
+                            onClick = {
+                                openListDialog(
+                                    forceDomainTitle,
+                                    sniffer?.forceDomain
+                                ) { v -> updateSniffer { it.copy(forceDomain = v) } }
+                            },
+                        )
+                    },
+                    CardItem("skipDomain") {
+                        val skipDomainTitle = stringResource(Res.string.meta_sniffer_skip_domain)
+                        ArrowPreference(
+                            title = skipDomainTitle,
+                            summary = listSummary(sniffer?.skipDomain),
+                            onClick = {
+                                openListDialog(
+                                    skipDomainTitle,
+                                    sniffer?.skipDomain
+                                ) { v -> updateSniffer { it.copy(skipDomain = v) } }
+                            },
+                        )
+                    },
+                ),
+            )
 
             // === Age 加密 ===
             item { SmallTitle(text = stringResource(Res.string.meta_age)) }
-            item {
-                val failedMsg = stringResource(Res.string.meta_age_keygen_failed)
-                val genKey: (Boolean) -> Unit = { hybrid ->
-                    val pair = MishkaCoreBridge.generateAgeKeyPair(hybrid)
-                    if (pair != null) {
-                        ageKeyPair = pair
-                        showAgeDialog = true
-                    } else {
-                        showToast(failedMsg)
-                    }
-                }
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp)
-                        .padding(bottom = 6.dp),
-                ) {
-                    ArrowPreference(
-                        title = stringResource(Res.string.meta_age_generate),
-                        summary = stringResource(Res.string.meta_age_generate_summary),
-                        onClick = { genKey(false) },
-                    )
-                    ArrowPreference(
-                        title = stringResource(Res.string.meta_age_generate_hybrid),
-                        summary = stringResource(Res.string.meta_age_generate_hybrid_summary),
-                        onClick = { genKey(true) },
-                    )
-                }
-            }
+            groupedCardItems(
+                keyPrefix = "meta_age",
+                items = listOf(
+                    CardItem("generate") {
+                        ArrowPreference(
+                            title = stringResource(Res.string.meta_age_generate),
+                            summary = stringResource(Res.string.meta_age_generate_summary),
+                            onClick = { genKey(false) },
+                        )
+                    },
+                    CardItem("generateHybrid") {
+                        ArrowPreference(
+                            title = stringResource(Res.string.meta_age_generate_hybrid),
+                            summary = stringResource(Res.string.meta_age_generate_hybrid_summary),
+                            onClick = { genKey(true) },
+                        )
+                    },
+                ),
+            )
 
             item { Spacer(Modifier.height(24.dp).navigationBarsPadding()) }
         }

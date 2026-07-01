@@ -40,9 +40,11 @@ import mishka.shared.generated.resources.network_external_controller
 import mishka.shared.generated.resources.network_input_value
 import org.jetbrains.compose.resources.stringResource
 import top.yukonga.mishka.platform.showToast
+import top.yukonga.mishka.ui.component.CardItem
 import top.yukonga.mishka.ui.component.RestartRequiredHint
 import top.yukonga.mishka.ui.component.blur.BlurredBar
 import top.yukonga.mishka.ui.component.blur.rememberBlurBackdrop
+import top.yukonga.mishka.ui.component.groupedCardItems
 import top.yukonga.mishka.viewmodel.ExternalControlViewModel
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
@@ -124,35 +126,36 @@ fun ExternalControlScreen(
                 Spacer(Modifier.height(6.dp))
             }
 
-            item {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp)
-                        .padding(bottom = 12.dp),
-                ) {
-                    ArrowPreference(
-                        title = stringResource(Res.string.external_control_ip),
-                        summary = uiState.externalController ?: notModifiedStr,
-                        onClick = {
-                            controllerTextState.edit {
-                                replace(0, length, uiState.externalController ?: "")
-                            }
-                            showEditDialog = true
-                        },
-                    )
-                    ArrowPreference(
-                        title = stringResource(Res.string.external_control_secret),
-                        summary = uiState.secret ?: notModifiedStr,
-                        onClick = {
-                            secretTextState.edit {
-                                replace(0, length, uiState.secret ?: "")
-                            }
-                            showSecretDialog = true
-                        },
-                    )
-                }
-            }
+            groupedCardItems(
+                keyPrefix = "external_control",
+                outerBottomPadding = 12.dp,
+                items = listOf(
+                    CardItem("controller") {
+                        ArrowPreference(
+                            title = stringResource(Res.string.external_control_ip),
+                            summary = uiState.externalController ?: notModifiedStr,
+                            onClick = {
+                                controllerTextState.edit {
+                                    replace(0, length, uiState.externalController ?: "")
+                                }
+                                showEditDialog = true
+                            },
+                        )
+                    },
+                    CardItem("secret") {
+                        ArrowPreference(
+                            title = stringResource(Res.string.external_control_secret),
+                            summary = uiState.secret ?: notModifiedStr,
+                            onClick = {
+                                secretTextState.edit {
+                                    replace(0, length, uiState.secret ?: "")
+                                }
+                                showSecretDialog = true
+                            },
+                        )
+                    },
+                ),
+            )
 
             item {
                 Card(

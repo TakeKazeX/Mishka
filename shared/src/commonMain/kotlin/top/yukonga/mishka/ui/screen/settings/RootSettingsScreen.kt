@@ -48,10 +48,12 @@ import mishka.shared.generated.resources.vpn_allow_ipv6_summary
 import org.jetbrains.compose.resources.stringResource
 import top.yukonga.mishka.platform.PlatformStorage
 import top.yukonga.mishka.platform.StorageKeys
+import top.yukonga.mishka.ui.component.CardItem
 import top.yukonga.mishka.ui.component.RestartRequiredHint
 import top.yukonga.mishka.ui.component.TetherInterfaceEditDialog
 import top.yukonga.mishka.ui.component.blur.BlurredBar
 import top.yukonga.mishka.ui.component.blur.rememberBlurBackdrop
+import top.yukonga.mishka.ui.component.groupedCardItems
 import top.yukonga.mishka.ui.component.tetherInterfaceSummary
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
@@ -168,39 +170,45 @@ fun RootSettingsScreen(
         ) {
             item { RestartRequiredHint() }
             item { SmallTitle(text = stringResource(Res.string.root_section_device)) }
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 12.dp),
-                ) {
-                    ArrowPreference(
-                        title = stringResource(Res.string.settings_tun_device),
-                        summary = tunDevice,
-                        onClick = {
-                            tunDeviceTextState.edit { replace(0, length, tunDevice) }
-                            showTunDeviceDialog = true
-                        },
-                        enabled = !isProxyRunning,
-                    )
-                    SwitchPreference(
-                        title = stringResource(Res.string.root_tun_jumbo_mtu_title),
-                        summary = stringResource(Res.string.root_tun_jumbo_mtu_summary),
-                        checked = jumboMtu,
-                        onCheckedChange = {
-                            jumboMtu = it
-                            storage.putString(StorageKeys.ROOT_TUN_JUMBO_MTU, it.toString())
-                        },
-                    )
-                    SwitchPreference(
-                        title = stringResource(Res.string.vpn_allow_ipv6),
-                        summary = stringResource(Res.string.vpn_allow_ipv6_summary),
-                        checked = allowIpv6,
-                        onCheckedChange = {
-                            allowIpv6 = it
-                            storage.putString(StorageKeys.VPN_ALLOW_IPV6, it.toString())
-                        },
-                    )
-                }
-            }
+            groupedCardItems(
+                keyPrefix = "root_device",
+                outerBottomPadding = 12.dp,
+                items = listOf(
+                    CardItem("tunDevice") {
+                        ArrowPreference(
+                            title = stringResource(Res.string.settings_tun_device),
+                            summary = tunDevice,
+                            onClick = {
+                                tunDeviceTextState.edit { replace(0, length, tunDevice) }
+                                showTunDeviceDialog = true
+                            },
+                            enabled = !isProxyRunning,
+                        )
+                    },
+                    CardItem("jumboMtu") {
+                        SwitchPreference(
+                            title = stringResource(Res.string.root_tun_jumbo_mtu_title),
+                            summary = stringResource(Res.string.root_tun_jumbo_mtu_summary),
+                            checked = jumboMtu,
+                            onCheckedChange = {
+                                jumboMtu = it
+                                storage.putString(StorageKeys.ROOT_TUN_JUMBO_MTU, it.toString())
+                            },
+                        )
+                    },
+                    CardItem("allowIpv6") {
+                        SwitchPreference(
+                            title = stringResource(Res.string.vpn_allow_ipv6),
+                            summary = stringResource(Res.string.vpn_allow_ipv6_summary),
+                            checked = allowIpv6,
+                            onCheckedChange = {
+                                allowIpv6 = it
+                                storage.putString(StorageKeys.VPN_ALLOW_IPV6, it.toString())
+                            },
+                        )
+                    },
+                ),
+            )
             item { SmallTitle(text = stringResource(Res.string.root_section_tether)) }
             if (showTproxyWarning) {
                 item {
@@ -219,49 +227,55 @@ fun RootSettingsScreen(
                     }
                 }
             }
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 12.dp),
-                ) {
-                    if (isTproxy) {
-                        // TPROXY 模式：整条链路都由 iptables 透明代理，不需要 BYPASS/PROXY 切换
-                        Text(
-                            text = stringResource(Res.string.root_tproxy_tether_note),
-                            fontSize = 13.sp,
-                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            groupedCardItems(
+                keyPrefix = "root_tether",
+                outerBottomPadding = 12.dp,
+                items = listOf(
+                    CardItem("mode") {
+                        if (isTproxy) {
+                            // TPROXY 模式：整条链路都由 iptables 透明代理，不需要 BYPASS/PROXY 切换
+                            Text(
+                                text = stringResource(Res.string.root_tproxy_tether_note),
+                                fontSize = 13.sp,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                            )
+                        } else {
+                            val tetherItems = listOf(bypassLabel, proxyLabel)
+                            val selectedIndex = tetherModeValues.indexOf(tetherMode).coerceAtLeast(0)
+                            OverlayDropdownPreference(
+                                title = stringResource(Res.string.root_tether_mode_title),
+                                summary = tetherItems[selectedIndex],
+                                items = tetherItems,
+                                selectedIndex = selectedIndex,
+                                onSelectedIndexChange = { index ->
+                                    val value = tetherModeValues[index]
+                                    tetherMode = value
+                                    storage.putString(StorageKeys.ROOT_TETHER_MODE, value)
+                                },
+                            )
+                        }
+                    },
+                    CardItem("ifaces") {
+                        ArrowPreference(
+                            title = stringResource(Res.string.root_tether_ifaces_title),
+                            summary = tetherInterfaceSummary(tetherIfaces),
+                            onClick = { showTetherDialog = true },
                         )
-                    } else {
-                        val tetherItems = listOf(bypassLabel, proxyLabel)
-                        val selectedIndex = tetherModeValues.indexOf(tetherMode).coerceAtLeast(0)
-                        OverlayDropdownPreference(
-                            title = stringResource(Res.string.root_tether_mode_title),
-                            summary = tetherItems[selectedIndex],
-                            items = tetherItems,
-                            selectedIndex = selectedIndex,
-                            onSelectedIndexChange = { index ->
-                                val value = tetherModeValues[index]
-                                tetherMode = value
-                                storage.putString(StorageKeys.ROOT_TETHER_MODE, value)
+                    },
+                    CardItem("forceReapply") {
+                        SwitchPreference(
+                            title = stringResource(Res.string.root_attach_force_reapply_title),
+                            summary = stringResource(Res.string.root_attach_force_reapply_summary),
+                            checked = forceReapply,
+                            onCheckedChange = {
+                                forceReapply = it
+                                storage.putString(StorageKeys.ROOT_ATTACH_FORCE_REAPPLY, it.toString())
                             },
                         )
-                    }
-                    ArrowPreference(
-                        title = stringResource(Res.string.root_tether_ifaces_title),
-                        summary = tetherInterfaceSummary(tetherIfaces),
-                        onClick = { showTetherDialog = true },
-                    )
-                    SwitchPreference(
-                        title = stringResource(Res.string.root_attach_force_reapply_title),
-                        summary = stringResource(Res.string.root_attach_force_reapply_summary),
-                        checked = forceReapply,
-                        onCheckedChange = {
-                            forceReapply = it
-                            storage.putString(StorageKeys.ROOT_ATTACH_FORCE_REAPPLY, it.toString())
-                        },
-                    )
-                }
-            }
+                    },
+                ),
+            )
             item { Spacer(Modifier.height(24.dp).navigationBarsPadding()) }
         }
     }

@@ -1,10 +1,8 @@
 package top.yukonga.mishka.ui.screen.proxy
 
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -22,17 +20,19 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -70,6 +70,7 @@ import mishka.shared.generated.resources.proxy_timeout
 import mishka.shared.generated.resources.proxy_title
 import org.jetbrains.compose.resources.stringResource
 import top.yukonga.mishka.platform.IconLoader
+import top.yukonga.mishka.ui.component.CardSegment
 import top.yukonga.mishka.ui.component.ListPopupDefaults.MenuPositionProvider
 import top.yukonga.mishka.ui.component.blur.BlurredBar
 import top.yukonga.mishka.ui.component.blur.rememberBlurBackdrop
@@ -77,7 +78,6 @@ import top.yukonga.mishka.ui.theme.StatusColors
 import top.yukonga.mishka.viewmodel.ProxyGroupUi
 import top.yukonga.mishka.viewmodel.ProxyUiState
 import top.yukonga.mishka.viewmodel.ProxyViewModel
-import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.DropdownImpl
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
@@ -118,6 +118,14 @@ fun ProxyScreen(
     val showSortPopup = remember { mutableStateOf(false) }
     var iconCacheVersion by remember { mutableIntStateOf(0) }
     val coroutineScope = rememberCoroutineScope()
+
+    // 展开状态上提屏幕级：节点行是顶层 lazy item，存 item 内会随其销毁丢失，故用可保存的 SnapshotStateList 统一持有
+    val expandedGroups = rememberSaveable(
+        saver = listSaver(
+            save = { it.toList() },
+            restore = { it.toMutableStateList() },
+        ),
+    ) { mutableStateListOf<String>() }
 
     val backdrop = rememberBlurBackdrop()
     val blurActive = backdrop != null
@@ -268,46 +276,75 @@ fun ProxyScreen(
                         bottom = bottomPadding,
                     ),
                 ) {
-                    items(
-                        items = groups,
-                        key = { it.name },
-                        contentType = { "group" },
-                    ) { group ->
-                        var isExpanded by rememberSaveable(group.name) { mutableStateOf(false) }
+                    // 每组展平为「组头段 + 每行节点段」独立 lazy item；展开时只组合可见节点行，避免一次性组合整组造成卡顿
+                    groups.forEach { group ->
+                        val isExpanded = group.name in expandedGroups
+                        val rows = if (isExpanded) {
+                            sortNodes(group.all, group.delays, sortOption).chunked(2)
+                        } else {
+                            emptyList()
+                        }
 
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp)
-                                .padding(top = 12.dp),
-                        ) {
-                            ProxyGroupHeader(
-                                group = group,
-                                isExpanded = isExpanded,
-                                iconCacheVersion = iconCacheVersion,
-                                isTesting = group.name in uiState.testingGroups,
-                                onTestDelay = { viewModel?.testGroupDelay(group.name) },
-                                onToggle = { isExpanded = !isExpanded },
+                        item(key = "group:${group.name}", contentType = "proxy_group_header") {
+                            // 组头底角随展开在 16↔0 间动画，避免 isLast 随 rows 翻转导致圆角突变
+                            val headerBottomCorner by animateDpAsState(
+                                targetValue = if (rows.isEmpty()) 16.dp else 0.dp,
+                                animationSpec = tween(300),
+                                label = "groupHeaderBottomCorner",
                             )
-
-                            AnimatedVisibility(
-                                visible = isExpanded,
-                                enter = expandVertically(),
-                                exit = shrinkVertically(),
+                            CardSegment(
+                                isFirst = true,
+                                isLast = rows.isEmpty(),
+                                modifier = Modifier.animateItem(),
+                                bottomCornerRadius = headerBottomCorner,
+                                outerTopPadding = 12.dp,
                             ) {
-                                ProxyNodeGrid(
+                                ProxyGroupHeader(
                                     group = group,
-                                    sortOption = sortOption,
-                                    testingNodes = uiState.testingNodes,
-                                    onTestNodeDelay = { nodeName ->
-                                        viewModel?.testNodeDelay(nodeName)
-                                    },
-                                    onSelect = { proxyName ->
-                                        if (group.type.lowercase() == "selector") {
-                                            viewModel?.selectProxy(group.name, proxyName)
-                                        }
+                                    isExpanded = isExpanded,
+                                    iconCacheVersion = iconCacheVersion,
+                                    isTesting = group.name in uiState.testingGroups,
+                                    onTestDelay = { viewModel?.testGroupDelay(group.name) },
+                                    onToggle = {
+                                        if (isExpanded) expandedGroups.remove(group.name)
+                                        else expandedGroups.add(group.name)
                                     },
                                 )
+                            }
+                        }
+
+                        if (rows.isNotEmpty()) {
+                            val lastRowIndex = rows.lastIndex
+                            rows.forEachIndexed { rowIndex, row ->
+                                item(
+                                    key = "nodes:${group.name}:$rowIndex",
+                                    contentType = "proxy_node_row",
+                                ) {
+                                    CardSegment(
+                                        isFirst = false,
+                                        isLast = rowIndex == lastRowIndex,
+                                        modifier = Modifier.animateItem(),
+                                        insidePadding = PaddingValues(
+                                            start = 12.dp,
+                                            end = 12.dp,
+                                            bottom = 12.dp,
+                                        ),
+                                    ) {
+                                        ProxyNodeRow(
+                                            row = row,
+                                            group = group,
+                                            testingNodes = uiState.testingNodes,
+                                            onTestNodeDelay = { nodeName ->
+                                                viewModel?.testNodeDelay(nodeName)
+                                            },
+                                            onSelect = { proxyName ->
+                                                if (group.type.lowercase() == "selector") {
+                                                    viewModel?.selectProxy(group.name, proxyName)
+                                                }
+                                            },
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -479,51 +516,39 @@ private fun DefaultGroupIcon(name: String) {
     }
 }
 
+// 一行 ≤2 个节点，是节点网格的独立 lazy item 单元；排序/分行在 LazyColumn 内容 lambda 完成
 @Composable
-private fun ProxyNodeGrid(
+private fun ProxyNodeRow(
+    row: List<String>,
     group: ProxyGroupUi,
-    sortOption: Int,
     testingNodes: ImmutableSet<String> = persistentSetOf(),
     onTestNodeDelay: (String) -> Unit = {},
     onSelect: (String) -> Unit,
 ) {
-    val sortedNodes = remember(group.all, group.delays, sortOption) {
-        sortNodes(group.all, group.delays, sortOption)
-    }
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp)
-            .padding(bottom = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        sortedNodes.chunked(2).forEach { row ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                row.forEach { proxyName ->
-                    val isSelected = proxyName == group.now
-                    val delay = group.delays[proxyName]
-                    val nodeType = group.nodeTypes[proxyName] ?: ""
-                    val isSelectable = group.type.lowercase() == "selector"
+        row.forEach { proxyName ->
+            val isSelected = proxyName == group.now
+            val delay = group.delays[proxyName]
+            val nodeType = group.nodeTypes[proxyName] ?: ""
+            val isSelectable = group.type.lowercase() == "selector"
 
-                    ProxyNodeCard(
-                        name = proxyName,
-                        type = nodeType,
-                        delay = delay,
-                        isSelected = isSelected,
-                        isSelectable = isSelectable,
-                        isTesting = proxyName in testingNodes,
-                        onTestDelay = { onTestNodeDelay(proxyName) },
-                        onClick = { onSelect(proxyName) },
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                if (row.size == 1) {
-                    Spacer(Modifier.weight(1f))
-                }
-            }
+            ProxyNodeCard(
+                name = proxyName,
+                type = nodeType,
+                delay = delay,
+                isSelected = isSelected,
+                isSelectable = isSelectable,
+                isTesting = proxyName in testingNodes,
+                onTestDelay = { onTestNodeDelay(proxyName) },
+                onClick = { onSelect(proxyName) },
+                modifier = Modifier.weight(1f),
+            )
+        }
+        if (row.size == 1) {
+            Spacer(Modifier.weight(1f))
         }
     }
 }
