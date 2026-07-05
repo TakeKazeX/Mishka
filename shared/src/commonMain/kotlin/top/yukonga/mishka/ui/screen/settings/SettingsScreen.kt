@@ -2,8 +2,6 @@ package top.yukonga.mishka.ui.screen.settings
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -62,14 +60,15 @@ import top.yukonga.mishka.platform.BootStartManager
 import top.yukonga.mishka.platform.PlatformStorage
 import top.yukonga.mishka.platform.ProxyServiceBridge
 import top.yukonga.mishka.platform.StorageKeys
+import top.yukonga.mishka.ui.component.AdaptiveTopAppBar
 import top.yukonga.mishka.ui.component.CardItem
-import top.yukonga.mishka.ui.component.groupedCardItems
 import top.yukonga.mishka.ui.component.blur.BlurredBar
 import top.yukonga.mishka.ui.component.blur.rememberBlurBackdrop
+import top.yukonga.mishka.ui.component.groupedCardItems
+import top.yukonga.mishka.ui.util.WideContentBox
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTitle
-import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
@@ -143,7 +142,7 @@ fun SettingsScreen(
         modifier = modifier,
         topBar = {
             BlurredBar(backdrop = backdrop, blurActive = blurActive) {
-                TopAppBar(
+                AdaptiveTopAppBar(
                     title = stringResource(Res.string.settings_title),
                     color = barColor,
                     scrollBehavior = scrollBehavior,
@@ -151,205 +150,209 @@ fun SettingsScreen(
             }
         },
     ) { innerPadding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .then(if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier)
-                .scrollEndHaptic()
-                .overScrollVertical()
-                .nestedScroll(scrollBehavior.nestedScrollConnection),
-            contentPadding = PaddingValues(
-                top = innerPadding.calculateTopPadding(),
-                bottom = bottomPadding,
-            ),
-        ) {
-            item {
-                SmallTitle(text = stringResource(Res.string.settings_network))
-            }
-            groupedCardItems(
-                keyPrefix = "settings_network",
-                items = buildList {
-                    if (hasRootPermission) {
-                        add(CardItem("tunMode") {
+        WideContentBox { sidePadding ->
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .then(if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier)
+                    .scrollEndHaptic()
+                    .overScrollVertical()
+                    .nestedScroll(scrollBehavior.nestedScrollConnection),
+                contentPadding = PaddingValues(
+                    top = innerPadding.calculateTopPadding(),
+                    start = sidePadding,
+                    end = sidePadding,
+                    bottom = bottomPadding,
+                ),
+            ) {
+                item {
+                    SmallTitle(text = stringResource(Res.string.settings_network))
+                }
+                groupedCardItems(
+                    keyPrefix = "settings_network",
+                    items = buildList {
+                        if (hasRootPermission) {
+                            add(CardItem("tunMode") {
+                                OverlayDropdownPreference(
+                                    title = stringResource(Res.string.settings_tun_mode),
+                                    summary = when (tunModeIndex) {
+                                        1 -> stringResource(Res.string.settings_tun_root_tun_summary)
+                                        2 -> stringResource(Res.string.settings_tun_root_tproxy_summary)
+                                        else -> stringResource(Res.string.settings_tun_vpn_summary)
+                                    },
+                                    items = tunModeItems,
+                                    selectedIndex = tunModeIndex,
+                                    onSelectedIndexChange = { index ->
+                                        val mode = when (index) {
+                                            1 -> "root_tun"
+                                            2 -> "root_tproxy"
+                                            else -> "vpn"
+                                        }
+                                        storage?.putString(StorageKeys.TUN_MODE, mode)
+                                        tunModeIndex = index
+                                    },
+                                    enabled = !isProxyRunning,
+                                )
+                            })
+                        }
+                        if (tunModeIndex == 0) {
+                            add(CardItem("vpnSettings") {
+                                ArrowPreference(
+                                    title = stringResource(Res.string.settings_vpn_settings),
+                                    summary = stringResource(Res.string.settings_vpn_summary),
+                                    onClick = onNavigateVpnSettings,
+                                )
+                            })
+                        }
+                        if (tunModeIndex == 1 || tunModeIndex == 2) {
+                            add(CardItem("rootSettings") {
+                                ArrowPreference(
+                                    title = stringResource(Res.string.root_settings_title),
+                                    summary = stringResource(Res.string.root_settings_summary),
+                                    onClick = onNavigateRootSettings,
+                                )
+                            })
+                        }
+                        add(CardItem("override") {
+                            ArrowPreference(
+                                title = stringResource(Res.string.settings_override_settings),
+                                summary = stringResource(Res.string.settings_override_summary),
+                                onClick = onNavigateNetworkSettings,
+                            )
+                        })
+                        add(CardItem("meta") {
+                            ArrowPreference(
+                                title = stringResource(Res.string.settings_meta_settings),
+                                summary = stringResource(Res.string.settings_meta_summary),
+                                onClick = onNavigateMetaSettings,
+                            )
+                        })
+                        add(CardItem("externalControl") {
+                            ArrowPreference(
+                                title = stringResource(Res.string.external_control_title),
+                                summary = stringResource(Res.string.settings_external_control_summary),
+                                onClick = onNavigateExternalControl,
+                            )
+                        })
+                        add(CardItem("appProxy") {
+                            ArrowPreference(
+                                title = stringResource(Res.string.settings_app_proxy),
+                                summary = stringResource(Res.string.settings_app_proxy_summary),
+                                onClick = onNavigateAppProxy,
+                            )
+                        })
+                        add(CardItem("fileManager") {
+                            ArrowPreference(
+                                title = stringResource(Res.string.settings_file_manager),
+                                summary = stringResource(Res.string.settings_file_manager_summary),
+                                onClick = onNavigateFileManager,
+                            )
+                        })
+                    },
+                )
+                item {
+                    SmallTitle(text = stringResource(Res.string.settings_general))
+                }
+                groupedCardItems(
+                    keyPrefix = "settings_general",
+                    outerBottomPadding = 12.dp,
+                    items = buildList {
+                        if (onHideTaskCardChange != null) {
+                            add(CardItem("hideTaskCard") {
+                                SwitchPreference(
+                                    title = stringResource(Res.string.settings_hide_task_card),
+                                    summary = stringResource(Res.string.settings_hide_task_card_summary),
+                                    checked = isHideTaskCardEnabled,
+                                    onCheckedChange = { checked ->
+                                        storage?.putString(StorageKeys.HIDE_TASK_CARD, if (checked) "true" else "false")
+                                        isHideTaskCardEnabled = checked
+                                        onHideTaskCardChange(checked)
+                                    },
+                                )
+                            })
+                        }
+                        add(CardItem("dynamicNotification") {
+                            val isVpnMode = tunModeIndex == 0
+                            SwitchPreference(
+                                title = stringResource(Res.string.settings_dynamic_notification),
+                                summary = stringResource(
+                                    if (isVpnMode) Res.string.settings_dynamic_notification_summary
+                                    else Res.string.settings_dynamic_notification_summary_root_unsupported
+                                ),
+                                checked = isDynamicNotificationEnabled && isVpnMode,
+                                enabled = isVpnMode,
+                                onCheckedChange = { checked ->
+                                    storage?.putString(StorageKeys.DYNAMIC_NOTIFICATION, if (checked) "true" else "false")
+                                    isDynamicNotificationEnabled = checked
+                                    ProxyServiceBridge.requestNotificationRefresh()
+                                },
+                            )
+                        })
+                        add(CardItem("subscriptionViaProxy") {
+                            SwitchPreference(
+                                title = stringResource(Res.string.settings_subscription_via_proxy),
+                                summary = stringResource(Res.string.settings_subscription_via_proxy_summary),
+                                checked = isUpdateViaProxyEnabled,
+                                onCheckedChange = { checked ->
+                                    storage?.putString(StorageKeys.SUBSCRIPTION_UPDATE_VIA_PROXY, if (checked) "true" else "false")
+                                    isUpdateViaProxyEnabled = checked
+                                },
+                            )
+                        })
+                        if (bootStartManager != null) {
+                            add(CardItem("autoRestart") {
+                                SwitchPreference(
+                                    title = stringResource(Res.string.settings_auto_restart),
+                                    summary = stringResource(Res.string.settings_auto_restart_summary),
+                                    checked = isAutoStartEnabled,
+                                    onCheckedChange = { checked ->
+                                        bootStartManager.setEnabled(checked)
+                                        isAutoStartEnabled = checked
+                                    },
+                                )
+                            })
+                        }
+                        add(CardItem("theme") {
                             OverlayDropdownPreference(
-                                title = stringResource(Res.string.settings_tun_mode),
-                                summary = when (tunModeIndex) {
-                                    1 -> stringResource(Res.string.settings_tun_root_tun_summary)
-                                    2 -> stringResource(Res.string.settings_tun_root_tproxy_summary)
-                                    else -> stringResource(Res.string.settings_tun_vpn_summary)
-                                },
-                                items = tunModeItems,
-                                selectedIndex = tunModeIndex,
+                                title = stringResource(Res.string.settings_theme_mode),
+                                summary = themeItems.getOrElse(colorMode) { themeSystemStr },
+                                items = themeItems,
+                                selectedIndex = colorMode,
                                 onSelectedIndexChange = { index ->
-                                    val mode = when (index) {
-                                        1 -> "root_tun"
-                                        2 -> "root_tproxy"
-                                        else -> "vpn"
+                                    onColorModeChange(index)
+                                    val value = when (index) {
+                                        1 -> "light"
+                                        2 -> "dark"
+                                        else -> "system"
                                     }
-                                    storage?.putString(StorageKeys.TUN_MODE, mode)
-                                    tunModeIndex = index
+                                    storage?.putString(StorageKeys.DARK_MODE, value)
                                 },
-                                enabled = !isProxyRunning,
                             )
                         })
-                    }
-                    if (tunModeIndex == 0) {
-                        add(CardItem("vpnSettings") {
+                        if (onPredictiveBackChange != null) {
+                            add(CardItem("predictiveBack") {
+                                SwitchPreference(
+                                    title = stringResource(Res.string.settings_predictive_back),
+                                    summary = stringResource(Res.string.settings_predictive_back_summary),
+                                    checked = isPredictiveBackEnabled,
+                                    onCheckedChange = { checked ->
+                                        storage?.putString(StorageKeys.PREDICTIVE_BACK, if (checked) "true" else "false")
+                                        isPredictiveBackEnabled = checked
+                                        onPredictiveBackChange(checked)
+                                    },
+                                )
+                            })
+                        }
+                        add(CardItem("about") {
                             ArrowPreference(
-                                title = stringResource(Res.string.settings_vpn_settings),
-                                summary = stringResource(Res.string.settings_vpn_summary),
-                                onClick = onNavigateVpnSettings,
+                                title = stringResource(Res.string.settings_about),
+                                summary = "Mishka v${misc.VersionInfo.VERSION_NAME}",
+                                onClick = onNavigateAbout,
                             )
                         })
-                    }
-                    if (tunModeIndex == 1 || tunModeIndex == 2) {
-                        add(CardItem("rootSettings") {
-                            ArrowPreference(
-                                title = stringResource(Res.string.root_settings_title),
-                                summary = stringResource(Res.string.root_settings_summary),
-                                onClick = onNavigateRootSettings,
-                            )
-                        })
-                    }
-                    add(CardItem("override") {
-                        ArrowPreference(
-                            title = stringResource(Res.string.settings_override_settings),
-                            summary = stringResource(Res.string.settings_override_summary),
-                            onClick = onNavigateNetworkSettings,
-                        )
-                    })
-                    add(CardItem("meta") {
-                        ArrowPreference(
-                            title = stringResource(Res.string.settings_meta_settings),
-                            summary = stringResource(Res.string.settings_meta_summary),
-                            onClick = onNavigateMetaSettings,
-                        )
-                    })
-                    add(CardItem("externalControl") {
-                        ArrowPreference(
-                            title = stringResource(Res.string.external_control_title),
-                            summary = stringResource(Res.string.settings_external_control_summary),
-                            onClick = onNavigateExternalControl,
-                        )
-                    })
-                    add(CardItem("appProxy") {
-                        ArrowPreference(
-                            title = stringResource(Res.string.settings_app_proxy),
-                            summary = stringResource(Res.string.settings_app_proxy_summary),
-                            onClick = onNavigateAppProxy,
-                        )
-                    })
-                    add(CardItem("fileManager") {
-                        ArrowPreference(
-                            title = stringResource(Res.string.settings_file_manager),
-                            summary = stringResource(Res.string.settings_file_manager_summary),
-                            onClick = onNavigateFileManager,
-                        )
-                    })
-                },
-            )
-            item {
-                SmallTitle(text = stringResource(Res.string.settings_general))
+                    },
+                )
             }
-            groupedCardItems(
-                keyPrefix = "settings_general",
-                outerBottomPadding = 12.dp,
-                items = buildList {
-                    if (onHideTaskCardChange != null) {
-                        add(CardItem("hideTaskCard") {
-                            SwitchPreference(
-                                title = stringResource(Res.string.settings_hide_task_card),
-                                summary = stringResource(Res.string.settings_hide_task_card_summary),
-                                checked = isHideTaskCardEnabled,
-                                onCheckedChange = { checked ->
-                                    storage?.putString(StorageKeys.HIDE_TASK_CARD, if (checked) "true" else "false")
-                                    isHideTaskCardEnabled = checked
-                                    onHideTaskCardChange(checked)
-                                },
-                            )
-                        })
-                    }
-                    add(CardItem("dynamicNotification") {
-                        val isVpnMode = tunModeIndex == 0
-                        SwitchPreference(
-                            title = stringResource(Res.string.settings_dynamic_notification),
-                            summary = stringResource(
-                                if (isVpnMode) Res.string.settings_dynamic_notification_summary
-                                else Res.string.settings_dynamic_notification_summary_root_unsupported
-                            ),
-                            checked = isDynamicNotificationEnabled && isVpnMode,
-                            enabled = isVpnMode,
-                            onCheckedChange = { checked ->
-                                storage?.putString(StorageKeys.DYNAMIC_NOTIFICATION, if (checked) "true" else "false")
-                                isDynamicNotificationEnabled = checked
-                                ProxyServiceBridge.requestNotificationRefresh()
-                            },
-                        )
-                    })
-                    add(CardItem("subscriptionViaProxy") {
-                        SwitchPreference(
-                            title = stringResource(Res.string.settings_subscription_via_proxy),
-                            summary = stringResource(Res.string.settings_subscription_via_proxy_summary),
-                            checked = isUpdateViaProxyEnabled,
-                            onCheckedChange = { checked ->
-                                storage?.putString(StorageKeys.SUBSCRIPTION_UPDATE_VIA_PROXY, if (checked) "true" else "false")
-                                isUpdateViaProxyEnabled = checked
-                            },
-                        )
-                    })
-                    if (bootStartManager != null) {
-                        add(CardItem("autoRestart") {
-                            SwitchPreference(
-                                title = stringResource(Res.string.settings_auto_restart),
-                                summary = stringResource(Res.string.settings_auto_restart_summary),
-                                checked = isAutoStartEnabled,
-                                onCheckedChange = { checked ->
-                                    bootStartManager.setEnabled(checked)
-                                    isAutoStartEnabled = checked
-                                },
-                            )
-                        })
-                    }
-                    add(CardItem("theme") {
-                        OverlayDropdownPreference(
-                            title = stringResource(Res.string.settings_theme_mode),
-                            summary = themeItems.getOrElse(colorMode) { themeSystemStr },
-                            items = themeItems,
-                            selectedIndex = colorMode,
-                            onSelectedIndexChange = { index ->
-                                onColorModeChange(index)
-                                val value = when (index) {
-                                    1 -> "light"
-                                    2 -> "dark"
-                                    else -> "system"
-                                }
-                                storage?.putString(StorageKeys.DARK_MODE, value)
-                            },
-                        )
-                    })
-                    if (onPredictiveBackChange != null) {
-                        add(CardItem("predictiveBack") {
-                            SwitchPreference(
-                                title = stringResource(Res.string.settings_predictive_back),
-                                summary = stringResource(Res.string.settings_predictive_back_summary),
-                                checked = isPredictiveBackEnabled,
-                                onCheckedChange = { checked ->
-                                    storage?.putString(StorageKeys.PREDICTIVE_BACK, if (checked) "true" else "false")
-                                    isPredictiveBackEnabled = checked
-                                    onPredictiveBackChange(checked)
-                                },
-                            )
-                        })
-                    }
-                    add(CardItem("about") {
-                        ArrowPreference(
-                            title = stringResource(Res.string.settings_about),
-                            summary = "Mishka v${misc.VersionInfo.VERSION_NAME}",
-                            onClick = onNavigateAbout,
-                        )
-                    })
-                },
-            )
         }
     }
 }

@@ -32,6 +32,7 @@ import mishka.shared.generated.resources.subscription_url_summary
 import org.jetbrains.compose.resources.stringResource
 import top.yukonga.mishka.ui.component.blur.BlurredBar
 import top.yukonga.mishka.ui.component.blur.rememberBlurBackdrop
+import top.yukonga.mishka.ui.util.horizontalCutoutPadding
 import top.yukonga.mishka.viewmodel.SubscriptionViewModel
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
@@ -39,7 +40,7 @@ import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.mishka.ui.component.AdaptiveTopAppBar
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
@@ -70,7 +71,7 @@ fun SubscriptionAddScreen(
     Scaffold(
         topBar = {
             BlurredBar(backdrop = backdrop, blurActive = blurActive) {
-                TopAppBar(
+                AdaptiveTopAppBar(
                     title = stringResource(Res.string.subscription_create),
                     color = barColor,
                     scrollBehavior = scrollBehavior,
@@ -94,6 +95,7 @@ fun SubscriptionAddScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
+                .horizontalCutoutPadding()
                 .then(if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier)
                 .scrollEndHaptic()
                 .overScrollVertical()

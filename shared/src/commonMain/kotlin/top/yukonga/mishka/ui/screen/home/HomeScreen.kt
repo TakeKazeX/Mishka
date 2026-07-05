@@ -23,7 +23,8 @@ import top.yukonga.mishka.viewmodel.SpeedSnapshot
 import top.yukonga.mishka.viewmodel.SystemInfoSnapshot
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.mishka.ui.component.AdaptiveTopAppBar
+import top.yukonga.mishka.ui.util.WideContentBox
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
@@ -65,7 +66,7 @@ fun HomeScreen(
         modifier = modifier,
         topBar = {
             BlurredBar(backdrop = backdrop, blurActive = blurActive) {
-                TopAppBar(
+                AdaptiveTopAppBar(
                     title = "Mishka",
                     color = barColor,
                     scrollBehavior = scrollBehavior,
@@ -73,42 +74,46 @@ fun HomeScreen(
             }
         },
     ) { innerPadding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .then(if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier)
-                .scrollEndHaptic()
-                .overScrollVertical()
-                .nestedScroll(scrollBehavior.nestedScrollConnection),
-            contentPadding = PaddingValues(
-                top = innerPadding.calculateTopPadding(),
-                bottom = bottomPadding,
-            ),
-        ) {
-            statusSection(
-                state = uiState,
-                uptime = uptime,
-                onSwitchMode = onSwitchMode,
-                onSwitchTunStack = onSwitchTunStack,
-            )
-            actionButtonsSection(
-                onRestart = onRestart,
-                onStop = onStop,
-                onReload = onReload,
-                onStart = onStartProxy,
-                isRunning = uiState.isRunning,
-                isStarting = uiState.isStarting,
-                isStopping = uiState.isStopping,
-            )
-            quickEntriesSection(
-                onNavigateLog = onNavigateLog,
-                onNavigateProvider = onNavigateProvider,
-                onNavigateConnection = onNavigateConnection,
-                onNavigateDnsQuery = onNavigateDnsQuery,
-            )
-            latencySection(uiState, onTestLatency, onSwitchProxyGroup)
-            networkInfoSection(speed = speed, systemInfo = systemInfo)
-            bottomCardsSection(state = uiState, memory = memory, systemInfo = systemInfo)
+        WideContentBox { sidePadding ->
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .then(if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier)
+                    .scrollEndHaptic()
+                    .overScrollVertical()
+                    .nestedScroll(scrollBehavior.nestedScrollConnection),
+                contentPadding = PaddingValues(
+                    top = innerPadding.calculateTopPadding(),
+                    bottom = bottomPadding,
+                    start = sidePadding,
+                    end = sidePadding,
+                ),
+            ) {
+                statusSection(
+                    state = uiState,
+                    uptime = uptime,
+                    onSwitchMode = onSwitchMode,
+                    onSwitchTunStack = onSwitchTunStack,
+                )
+                actionButtonsSection(
+                    onRestart = onRestart,
+                    onStop = onStop,
+                    onReload = onReload,
+                    onStart = onStartProxy,
+                    isRunning = uiState.isRunning,
+                    isStarting = uiState.isStarting,
+                    isStopping = uiState.isStopping,
+                )
+                quickEntriesSection(
+                    onNavigateLog = onNavigateLog,
+                    onNavigateProvider = onNavigateProvider,
+                    onNavigateConnection = onNavigateConnection,
+                    onNavigateDnsQuery = onNavigateDnsQuery,
+                )
+                latencySection(uiState, onTestLatency, onSwitchProxyGroup)
+                networkInfoSection(speed = speed, systemInfo = systemInfo)
+                bottomCardsSection(state = uiState, memory = memory, systemInfo = systemInfo)
+            }
         }
     }
 }

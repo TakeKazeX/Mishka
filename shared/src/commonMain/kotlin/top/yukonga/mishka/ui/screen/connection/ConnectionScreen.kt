@@ -75,6 +75,8 @@ import top.yukonga.mishka.ui.component.SearchPager
 import top.yukonga.mishka.ui.component.SearchStatus
 import top.yukonga.mishka.ui.component.blur.BlurredBar
 import top.yukonga.mishka.ui.component.blur.rememberBlurBackdrop
+import top.yukonga.mishka.ui.util.horizontalCutoutPadding
+import top.yukonga.mishka.ui.util.rememberIsWideScreen
 import top.yukonga.mishka.util.FormatUtils
 import top.yukonga.mishka.viewmodel.ConnectionViewModel
 import top.yukonga.miuix.kmp.basic.Card
@@ -86,7 +88,7 @@ import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.mishka.ui.component.AdaptiveTopAppBar
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
@@ -141,8 +143,12 @@ fun ConnectionScreen(
         }
     }
 
-    val dynamicTopPadding by remember {
-        derivedStateOf { 12.dp * (1f - scrollBehavior.state.collapsedFraction) }
+    // 宽屏用固定的 SmallTopAppBar（永不折叠），搜索框顶部间距恒为 0；仅手机可折叠大标题栏才随折叠动态收缩
+    val isWideScreen = rememberIsWideScreen()
+    val dynamicTopPadding by remember(isWideScreen) {
+        derivedStateOf {
+            if (isWideScreen) 0.dp else 12.dp * (1f - scrollBehavior.state.collapsedFraction)
+        }
     }
 
     val backdrop = rememberBlurBackdrop()
@@ -155,7 +161,7 @@ fun ConnectionScreen(
                 searchStatus.TopAppBarAnim(
                     backgroundColor = if (blurActive) Color.Transparent else MiuixTheme.colorScheme.surface,
                 ) {
-                    TopAppBar(
+                    AdaptiveTopAppBar(
                         title = stringResource(Res.string.connection_title),
                         color = barColor,
                         scrollBehavior = scrollBehavior,
@@ -266,6 +272,7 @@ fun ConnectionScreen(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
+                    .horizontalCutoutPadding()
                     .then(if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier)
                     .scrollEndHaptic()
                     .overScrollVertical()

@@ -74,7 +74,8 @@ import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.mishka.ui.component.AdaptiveTopAppBar
+import top.yukonga.mishka.ui.util.WideContentBox
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Add
@@ -111,7 +112,7 @@ fun SubscriptionScreen(
     Scaffold(
         topBar = {
             BlurredBar(backdrop = backdrop, blurActive = blurActive) {
-                TopAppBar(
+                AdaptiveTopAppBar(
                     title = stringResource(Res.string.subscription_title),
                     color = barColor,
                     scrollBehavior = scrollBehavior,
@@ -157,72 +158,76 @@ fun SubscriptionScreen(
             }
         },
     ) { innerPadding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .then(if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier)
-                .scrollEndHaptic()
-                .overScrollVertical()
-                .nestedScroll(scrollBehavior.nestedScrollConnection),
-            contentPadding = PaddingValues(
-                top = innerPadding.calculateTopPadding(),
-                bottom = bottomPadding,
-            ),
-        ) {
-            if (uiState.subscriptions.isNotEmpty()) {
-                item(key = "top_padding") {
-                    Spacer(modifier = Modifier.height(12.dp))
-                }
-            }
-
-            if (uiState.error.isNotEmpty()) {
-                item(key = "error") {
-                    Card(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 12.dp),
-                        insideMargin = PaddingValues(16.dp),
-                    ) {
-                        Text(
-                            text = uiState.error,
-                            color = StatusColors.danger,
-                        )
+        WideContentBox { sidePadding ->
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .then(if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier)
+                    .scrollEndHaptic()
+                    .overScrollVertical()
+                    .nestedScroll(scrollBehavior.nestedScrollConnection),
+                contentPadding = PaddingValues(
+                    top = innerPadding.calculateTopPadding(),
+                    bottom = bottomPadding,
+                    start = sidePadding,
+                    end = sidePadding,
+                ),
+            ) {
+                if (uiState.subscriptions.isNotEmpty()) {
+                    item(key = "top_padding") {
+                        Spacer(modifier = Modifier.height(12.dp))
                     }
                 }
-            }
 
-            if (uiState.subscriptions.isEmpty()) {
-                item(key = "empty") {
-                    Column(
-                        modifier = Modifier.fillParentMaxSize(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center,
-                    ) {
-                        Text(
-                            text = stringResource(Res.string.subscription_no_config),
-                            fontSize = 16.sp,
-                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                        )
-                        Text(
-                            text = stringResource(Res.string.subscription_tap_add),
-                            modifier = Modifier.padding(top = 6.dp),
-                            fontSize = 14.sp,
-                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                        )
+                if (uiState.error.isNotEmpty()) {
+                    item(key = "error") {
+                        Card(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 12.dp),
+                            insideMargin = PaddingValues(16.dp),
+                        ) {
+                            Text(
+                                text = uiState.error,
+                                color = StatusColors.danger,
+                            )
+                        }
                     }
                 }
-            }
 
-            items(uiState.subscriptions, key = { it.id }) { sub ->
-                SubscriptionItem(
-                    subscription = sub,
-                    isLoading = uiState.isLoading,
-                    onSelect = {
-                        viewModel.setActive(sub.id)
-                        onActiveChanged?.invoke()
-                    },
-                    onRefresh = { viewModel.fetchSubscription(sub.id) },
-                    onDelete = { viewModel.removeSubscription(sub.id) },
-                    onEdit = { onNavigateEdit(sub.id) },
-                )
+                if (uiState.subscriptions.isEmpty()) {
+                    item(key = "empty") {
+                        Column(
+                            modifier = Modifier.fillParentMaxSize(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                        ) {
+                            Text(
+                                text = stringResource(Res.string.subscription_no_config),
+                                fontSize = 16.sp,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            )
+                            Text(
+                                text = stringResource(Res.string.subscription_tap_add),
+                                modifier = Modifier.padding(top = 6.dp),
+                                fontSize = 14.sp,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            )
+                        }
+                    }
+                }
+
+                items(uiState.subscriptions, key = { it.id }) { sub ->
+                    SubscriptionItem(
+                        subscription = sub,
+                        isLoading = uiState.isLoading,
+                        onSelect = {
+                            viewModel.setActive(sub.id)
+                            onActiveChanged?.invoke()
+                        },
+                        onRefresh = { viewModel.fetchSubscription(sub.id) },
+                        onDelete = { viewModel.removeSubscription(sub.id) },
+                        onEdit = { onNavigateEdit(sub.id) },
+                    )
+                }
             }
         }
     }

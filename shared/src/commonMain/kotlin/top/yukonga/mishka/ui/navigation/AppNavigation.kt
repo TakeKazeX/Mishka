@@ -4,7 +4,19 @@ import androidx.compose.animation.core.EaseInOut
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.MutatePriority
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
@@ -25,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.unit.Dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
@@ -73,6 +86,7 @@ import top.yukonga.mishka.ui.screen.subscription.SubscriptionAddScreen
 import top.yukonga.mishka.ui.screen.subscription.SubscriptionAddUrlScreen
 import top.yukonga.mishka.ui.screen.subscription.SubscriptionEditScreen
 import top.yukonga.mishka.ui.screen.subscription.SubscriptionScreen
+import top.yukonga.mishka.ui.util.rememberIsWideScreen
 import top.yukonga.mishka.viewmodel.AppProxyViewModel
 import top.yukonga.mishka.viewmodel.ConnectionViewModel
 import top.yukonga.mishka.viewmodel.DnsQueryViewModel
@@ -87,11 +101,14 @@ import top.yukonga.mishka.viewmodel.ProxyViewModel
 import top.yukonga.mishka.viewmodel.SubscriptionViewModel
 import top.yukonga.miuix.kmp.basic.NavigationBar
 import top.yukonga.miuix.kmp.basic.NavigationBarItem
+import top.yukonga.miuix.kmp.basic.NavigationRail
+import top.yukonga.miuix.kmp.basic.NavigationRailItem
 import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.rememberNavigationRailState
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Home
 import top.yukonga.miuix.kmp.icon.extended.Settings
-import top.yukonga.miuix.kmp.icon.extended.Sidebar
 import top.yukonga.miuix.kmp.icon.extended.Tune
 import top.yukonga.miuix.kmp.icon.extended.UploadCloud
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -365,47 +382,10 @@ private fun MainPage(
     val homeUiState = homeViewModel?.uiState?.collectAsStateWithLifecycle()?.value ?: HomeUiState()
     val selectedPage = mainPagerState.selectedPage
 
-    val backdrop = rememberBlurBackdrop()
-    val blurActive = backdrop != null
-    val barColor = if (blurActive) Color.Transparent else MiuixTheme.colorScheme.surface
-
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        bottomBar = {
-            BlurredBar(backdrop = backdrop, blurActive = blurActive) {
-                NavigationBar(color = barColor) {
-                    NavigationBarItem(
-                        selected = selectedPage == 0,
-                        onClick = { mainPagerState.animateToPage(0) },
-                        icon = MiuixIcons.Sidebar,
-                        label = stringResource(Res.string.nav_home),
-                    )
-                    NavigationBarItem(
-                        selected = selectedPage == 1,
-                        onClick = { mainPagerState.animateToPage(1) },
-                        icon = MiuixIcons.Tune,
-                        label = stringResource(Res.string.nav_proxy),
-                    )
-                    NavigationBarItem(
-                        selected = selectedPage == 2,
-                        onClick = { mainPagerState.animateToPage(2) },
-                        icon = MiuixIcons.UploadCloud,
-                        label = stringResource(Res.string.nav_subscription),
-                    )
-                    NavigationBarItem(
-                        selected = selectedPage == 3,
-                        onClick = { mainPagerState.animateToPage(3) },
-                        icon = MiuixIcons.Settings,
-                        label = stringResource(Res.string.nav_settings),
-                    )
-                }
-            }
-        },
-    ) { padding ->
-        val bottomPadding = padding.calculateBottomPadding()
-
+    // 页面主体：手机与宽屏两套外壳共用，仅传入不同的容器 modifier 与底部留白
+    val pagerContent: @Composable (Modifier, Dp) -> Unit = { pagerModifier, bottomPadding ->
         HorizontalPager(
-            modifier = if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier,
+            modifier = pagerModifier,
             state = mainPagerState.pagerState,
             verticalAlignment = Alignment.Top,
         ) { page ->
@@ -459,6 +439,98 @@ private fun MainPage(
                     isProxyRunning = homeUiState.isRunning || homeUiState.isStarting,
                 )
             }
+        }
+    }
+
+    if (rememberIsWideScreen()) {
+        // 宽屏：侧边 NavigationRail 取代底部 NavigationBar，纵向空间全部让给内容
+        Scaffold(modifier = Modifier.fillMaxSize()) { _ ->
+            Row(Modifier.fillMaxSize()) {
+                NavigationRail(state = rememberNavigationRailState()) {
+                    NavigationRailItem(
+                        selected = selectedPage == 0,
+                        onClick = { mainPagerState.animateToPage(0) },
+                        icon = MiuixIcons.Home,
+                        label = stringResource(Res.string.nav_home),
+                    )
+                    NavigationRailItem(
+                        selected = selectedPage == 1,
+                        onClick = { mainPagerState.animateToPage(1) },
+                        icon = MiuixIcons.Tune,
+                        label = stringResource(Res.string.nav_proxy),
+                    )
+                    NavigationRailItem(
+                        selected = selectedPage == 2,
+                        onClick = { mainPagerState.animateToPage(2) },
+                        icon = MiuixIcons.UploadCloud,
+                        label = stringResource(Res.string.nav_subscription),
+                    )
+                    NavigationRailItem(
+                        selected = selectedPage == 3,
+                        onClick = { mainPagerState.animateToPage(3) },
+                        icon = MiuixIcons.Settings,
+                        label = stringResource(Res.string.nav_settings),
+                    )
+                }
+                pagerContent(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        // rail 已吸收起始侧的刘海/导航栏 inset；末尾侧无 rail，在此补齐并对后代标记为已消费
+                        .consumeWindowInsets(
+                            WindowInsets.displayCutout.union(WindowInsets.navigationBars)
+                                .only(WindowInsetsSides.Start),
+                        )
+                        .windowInsetsPadding(
+                            WindowInsets.systemBars.union(WindowInsets.displayCutout)
+                                .only(WindowInsetsSides.End),
+                        ),
+                    WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
+                )
+            }
+        }
+    } else {
+        val backdrop = rememberBlurBackdrop()
+        val blurActive = backdrop != null
+        val barColor = if (blurActive) Color.Transparent else MiuixTheme.colorScheme.surface
+
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            bottomBar = {
+                BlurredBar(backdrop = backdrop, blurActive = blurActive) {
+                    NavigationBar(color = barColor) {
+                        NavigationBarItem(
+                            selected = selectedPage == 0,
+                            onClick = { mainPagerState.animateToPage(0) },
+                            icon = MiuixIcons.Home,
+                            label = stringResource(Res.string.nav_home),
+                        )
+                        NavigationBarItem(
+                            selected = selectedPage == 1,
+                            onClick = { mainPagerState.animateToPage(1) },
+                            icon = MiuixIcons.Tune,
+                            label = stringResource(Res.string.nav_proxy),
+                        )
+                        NavigationBarItem(
+                            selected = selectedPage == 2,
+                            onClick = { mainPagerState.animateToPage(2) },
+                            icon = MiuixIcons.UploadCloud,
+                            label = stringResource(Res.string.nav_subscription),
+                        )
+                        NavigationBarItem(
+                            selected = selectedPage == 3,
+                            onClick = { mainPagerState.animateToPage(3) },
+                            icon = MiuixIcons.Settings,
+                            label = stringResource(Res.string.nav_settings),
+                        )
+                    }
+                }
+            },
+        ) { padding ->
+            pagerContent(
+                if (backdrop != null) Modifier.fillMaxSize().layerBackdrop(backdrop) else Modifier.fillMaxSize(),
+                padding.calculateBottomPadding(),
+            )
         }
     }
 }

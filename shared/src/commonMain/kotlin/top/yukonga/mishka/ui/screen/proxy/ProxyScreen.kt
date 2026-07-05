@@ -88,7 +88,8 @@ import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.PopupPositionProvider
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.mishka.ui.component.AdaptiveTopAppBar
+import top.yukonga.mishka.ui.util.WideContentBox
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.basic.ArrowRight
@@ -135,7 +136,7 @@ fun ProxyScreen(
         modifier = modifier,
         topBar = {
             BlurredBar(backdrop = backdrop, blurActive = blurActive) {
-                TopAppBar(
+                AdaptiveTopAppBar(
                     title = stringResource(Res.string.proxy_title),
                     color = barColor,
                     scrollBehavior = scrollBehavior,
@@ -243,7 +244,7 @@ fun ProxyScreen(
             }
         },
     ) { innerPadding ->
-        Box(modifier = if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier) {
+        WideContentBox(modifier = if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier) { sidePadding ->
             if (groups.isEmpty()) {
                 Column(
                     modifier = Modifier
@@ -274,6 +275,8 @@ fun ProxyScreen(
                     contentPadding = PaddingValues(
                         top = innerPadding.calculateTopPadding(),
                         bottom = bottomPadding,
+                        start = sidePadding,
+                        end = sidePadding,
                     ),
                 ) {
                     // 每组展平为「组头段 + 每行节点段」独立 lazy item；展开时只组合可见节点行，避免一次性组合整组造成卡顿

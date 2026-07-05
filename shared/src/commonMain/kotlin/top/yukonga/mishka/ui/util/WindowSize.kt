@@ -1,0 +1,56 @@
+package top.yukonga.mishka.ui.util
+
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+
+/** 宽屏阈值：窗口宽度达到此值时启用侧边导航栏与内容居中（平板、横屏、展开态折叠屏、桌面）。 */
+private val WideScreenMinWidth = 600.dp
+
+/** 宽屏下内容的最大宽度，超出后两侧留白居中，避免超宽窗口下卡片被过度拉伸。 */
+val MaxContentWidth: Dp = 600.dp
+
+/** 当前窗口是否达到宽屏尺寸。宽屏切换到 NavigationRail + 固定小标题栏 + 内容居中。 */
+@Composable
+fun rememberIsWideScreen(): Boolean {
+    val containerSize = LocalWindowInfo.current.containerSize
+    return with(LocalDensity.current) { containerSize.width.toDp() >= WideScreenMinWidth }
+}
+
+/**
+ * 宽屏内容居中容器：按当前可用宽度算出单侧留白量并经 [content] 回传，交给内部滚动列表加进自己的
+ * `contentPadding`——列表本身保持全宽（滚动手势覆盖整屏、两侧无死区），仅其中的内容被居中限制到
+ * [MaxContentWidth]。窄屏（可用宽度不足上限）留白为 0，等同无操作。
+ */
+@Composable
+fun WideContentBox(
+    modifier: Modifier = Modifier,
+    content: @Composable (sidePadding: Dp) -> Unit,
+) {
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        content(((maxWidth - MaxContentWidth) / 2).coerceAtLeast(0.dp))
+    }
+}
+
+/**
+ * 为内容补上水平方向（起始 + 末尾）的屏幕缺口 / 侧边导航栏 inset padding。二级页 Scaffold 内容默认
+ * 只吃了顶部 inset，横屏遇到侧边刘海 / 挖孔 / 手势条时内容会压到缺口下——在内容根容器加此 modifier
+ * 让内容避开。竖屏或无侧边缺口时 inset 为 0、等同无操作。顶栏由 `TopAppBar` 自己的
+ * `defaultWindowInsetsPadding` 处理，与此互不重叠。
+ */
+@Composable
+fun Modifier.horizontalCutoutPadding(): Modifier = windowInsetsPadding(
+    WindowInsets.displayCutout.union(WindowInsets.navigationBars).only(WindowInsetsSides.Horizontal),
+)

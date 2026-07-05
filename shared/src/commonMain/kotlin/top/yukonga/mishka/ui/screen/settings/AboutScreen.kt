@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
@@ -63,6 +64,7 @@ import top.yukonga.mishka.ui.component.blur.ColorBlendToken
 import top.yukonga.mishka.ui.component.blur.rememberBlurBackdrop
 import top.yukonga.mishka.ui.component.blur.rememberBlurEnabled
 import top.yukonga.mishka.ui.component.effect.BgEffectBackground
+import top.yukonga.mishka.ui.util.horizontalCutoutPadding
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
@@ -126,6 +128,7 @@ fun AboutScreen(
         topBar = {
             BlurredBar(backdrop = backdrop, blurActive = blurActive) {
                 SmallTopAppBar(
+                    modifier = Modifier.horizontalCutoutPadding(),
                     title = stringResource(Res.string.about_title),
                     scrollBehavior = scrollBehavior,
                     color = barColor,
@@ -205,6 +208,11 @@ private fun AboutContent(
     }
 
     var logoHeightDp by remember { mutableStateOf(300.dp) }
+
+    // 内容区至少铺满一屏（LazyColumn 视口高），内容更高时按内容增长——横屏矮视口下用固定高会把超出部分裁掉
+    val viewportHeight by remember {
+        derivedStateOf { lazyListState.layoutInfo.viewportSize.height }
+    }
 
     val versionCodeProgress = ((scrollProgress - 0.05f) / 0.15f).coerceIn(0f, 1f)
     val projectNameProgress = ((scrollProgress - 0.20f) / 0.15f).coerceIn(0f, 1f)
@@ -341,7 +349,7 @@ private fun AboutContent(
             item(key = "about") {
                 Column(
                     modifier = Modifier
-                        .fillParentMaxHeight()
+                        .heightIn(min = with(density) { viewportHeight.toDp() })
                         .padding(bottom = 12.dp),
                 ) {
                     SmallTitle(text = stringResource(Res.string.about_info))
