@@ -3,6 +3,7 @@ package top.yukonga.mishka.platform
 import android.content.Context
 import android.content.Intent
 import android.net.VpnService
+import android.os.SystemClock
 import androidx.activity.result.ActivityResultLauncher
 import kotlinx.coroutines.flow.StateFlow
 import java.io.File
@@ -36,6 +37,25 @@ actual class ProxyServiceController(private val context: Context) {
         val mode = activeModeOrStored()
         val intent = buildServiceIntent(mode, "STOP")
         context.startService(intent)
+    }
+
+    /**
+     * app reopen 时对 ROOT 模式的重连入口（attach-only）：只尝试重连仍存活的 mihomo 进程，
+     * attach 失败时 Service 端不会回退到全新启动（与 [start] 语义不同）。用户未主动请求启动，
+     * 仅是打开了 app，因此进程若已不存在必须保持停止，而非自动跑起来。
+     */
+    fun reattachRoot() {
+        val mode = getTunMode()
+        if (mode != TunMode.RootTun && mode != TunMode.RootTproxy) return
+        val id = storage.getString(StorageKeys.ACTIVE_PROFILE_UUID, "").ifEmpty { null } ?: run {
+            storage.putString(StorageKeys.SERVICE_WAS_RUNNING, "false")
+            return
+        }
+        val intent = buildServiceIntent(mode, "START").apply {
+            putExtra(EXTRA_SUBSCRIPTION_ID, id)
+            putExtra("attach_only", true)
+        }
+        context.startForegroundService(intent)
     }
 
     /**
@@ -173,14 +193,25 @@ actual class ProxyServiceController(private val context: Context) {
         }
 
         val currentMode = getTunMode()
-        // ROOT 模式：app 被杀后 mihomo 进程仍存活，重新打开时尝试重连
+        // ROOT 模式：app 被杀但设备未重启时，mihomo root 进程仍存活，重新打开 app 时尝试
+        // attach-only 重连（绝不全新启动）。但设备重启会杀死 root 进程，此时持久化的 PID 已
+        // 过期——仅凭"PID 字符串非空"会误判为"进程仍活"而自动全新启动（用户未开启开机自启
+        // 却看到代理自动跑起来的根源）。用 boot session 标记识别重启：elapsedRealtime 重启
+        // 归零、单调递增，now < 启动时刻 ⇒ 期间重启过 ⇒ 进程必死，直接清状态、保持停止。
         if (wasRunning && (currentMode == TunMode.RootTun || currentMode == TunMode.RootTproxy)) {
             val hasPid = storage.getString(StorageKeys.ROOT_MIHOMO_PID, "").isNotEmpty()
-            if (hasPid) {
-                start()
+            val startElapsed = storage.getString(StorageKeys.ROOT_START_ELAPSED, "").toLongOrNull()
+            val rebooted = startElapsed != null && SystemClock.elapsedRealtime() < startElapsed
+            if (hasPid && !rebooted) {
+                // 同一 boot session 内且有持久化 PID：可能仍存活，交给 Service 做三重存活校验重连
+                reattachRoot()
                 return
             }
+            // 设备已重启 / 无 PID 可重连：清掉过期状态，保持停止
             storage.putString(StorageKeys.SERVICE_WAS_RUNNING, "false")
+            storage.putString(StorageKeys.ROOT_MIHOMO_PID, "")
+            storage.putString(StorageKeys.ROOT_START_ELAPSED, "")
+            return
         }
 
         if (wasRunning && currentMode == TunMode.Vpn) {

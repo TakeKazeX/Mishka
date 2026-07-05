@@ -4,6 +4,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.os.IBinder
+import android.os.SystemClock
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -114,7 +115,9 @@ class MishkaRootService : Service() {
         when (intent?.action) {
             ACTION_START -> {
                 val subscriptionId = intent.getStringExtra(EXTRA_SUBSCRIPTION_ID)
-                startProxy(subscriptionId)
+                // attach-only：reopen 触发的重连请求，只允许重连活着的进程，禁止全新启动
+                val attachOnly = intent.getBooleanExtra(EXTRA_ATTACH_ONLY, false)
+                startProxy(subscriptionId, attachOnly)
             }
 
             ACTION_STOP -> stopProxy()
@@ -129,11 +132,11 @@ class MishkaRootService : Service() {
     private fun isRootRunning(mode: TunMode): Boolean =
         mode == TunMode.RootTun || mode == TunMode.RootTproxy
 
-    private fun startProxy(subscriptionId: String? = null) {
+    private fun startProxy(subscriptionId: String? = null, attachOnly: Boolean = false) {
         scope.launch {
             val submode = currentSubmode
             val tunMode = submode.tunMode
-            Log.i(TAG, "Starting proxy (ROOT $submode), subscription: $subscriptionId")
+            Log.i(TAG, "Starting proxy (ROOT $submode), subscription: $subscriptionId, attachOnly=$attachOnly")
             // 防御外部直拉 Service：无 config 时 mihomo 启动失败且 root 写的日志难以定位
             if (!ProfileFileOps.hasValidConfig(this@MishkaRootService, subscriptionId)) {
                 Log.e(TAG, "No valid subscription config (id=$subscriptionId), aborting start")
@@ -237,6 +240,19 @@ class MishkaRootService : Service() {
                 }
                 Log.i(TAG, "Existing process pid=$existingPid failed attach verification, cleaning up")
                 clearPersistedState(storage)
+            }
+
+            // attach-only 请求（app reopen 触发的重连）：没有活着的进程可重连时，
+            // 绝不回退到全新启动——用户未主动请求启动，只是打开了 app。清状态、置 Stopped 后退出。
+            // 设备重启 / 进程崩溃后打开 app 会走到这里，避免"未开自动重启却自动跑起来"。
+            if (attachOnly) {
+                Log.i(TAG, "Attach-only reopen: no live mihomo to reconnect, staying stopped")
+                clearPersistedState(storage)
+                storage.putString(StorageKeys.SERVICE_WAS_RUNNING, "false")
+                ProxyServiceBridge.updateState(ProxyServiceStatus(ProxyState.Stopped, tunMode = tunMode))
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                stopSelf()
+                return@launch
             }
 
             // 2. 清理残留进程（上次的进程已失效，确保干净启动）
@@ -478,6 +494,8 @@ class MishkaRootService : Service() {
         storage.putString(StorageKeys.ROOT_MIHOMO_SECRET, secret)
         storage.putString(StorageKeys.ROOT_START_TIME, startTime.toString())
         storage.putString(StorageKeys.ROOT_ACTIVE_SUBSCRIPTION_ID, subscriptionId ?: "")
+        // boot session 标记：记录本次启动时的 elapsedRealtime，reopen 时据此识别设备是否重启过
+        storage.putString(StorageKeys.ROOT_START_ELAPSED, SystemClock.elapsedRealtime().toString())
     }
 
     private fun clearPersistedState(storage: PlatformStorage) {
@@ -485,6 +503,7 @@ class MishkaRootService : Service() {
         storage.putString(StorageKeys.ROOT_MIHOMO_SECRET, "")
         storage.putString(StorageKeys.ROOT_START_TIME, "")
         storage.putString(StorageKeys.ROOT_ACTIVE_SUBSCRIPTION_ID, "")
+        storage.putString(StorageKeys.ROOT_START_ELAPSED, "")
         storage.putString(StorageKeys.ROOT_TETHER_MODE_ACTIVE, "")
         storage.putString(StorageKeys.ROOT_SUBMODE_ACTIVE, "")
     }
@@ -567,6 +586,7 @@ class MishkaRootService : Service() {
         const val ACTION_RESTART = "top.yukonga.mishka.ROOT_RESTART"
         const val EXTRA_SUBSCRIPTION_ID = "subscription_id"
         const val EXTRA_SUBMODE = "submode"
+        const val EXTRA_ATTACH_ONLY = "attach_only"
 
         /**
          * Tile / BootReceiver 等内部入口不知道 submode，按 storage 里的 TUN_MODE
