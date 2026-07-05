@@ -55,6 +55,8 @@ import mishka.shared.generated.resources.settings_tun_root_tun_summary
 import mishka.shared.generated.resources.settings_tun_vpn_summary
 import mishka.shared.generated.resources.settings_vpn_settings
 import mishka.shared.generated.resources.settings_vpn_summary
+import mishka.shared.generated.resources.settings_wifi_policy
+import mishka.shared.generated.resources.settings_wifi_policy_summary
 import org.jetbrains.compose.resources.stringResource
 import top.yukonga.mishka.platform.BootStartManager
 import top.yukonga.mishka.platform.PlatformStorage
@@ -87,6 +89,7 @@ fun SettingsScreen(
     onNavigateMetaSettings: () -> Unit = {},
     onNavigateExternalControl: () -> Unit = {},
     onNavigateAppProxy: () -> Unit = {},
+    onNavigateWifiPolicy: () -> Unit = {},
     onNavigateFileManager: () -> Unit = {},
     onNavigateAbout: () -> Unit = {},
     bootStartManager: BootStartManager? = null,
@@ -239,6 +242,13 @@ fun SettingsScreen(
                                 title = stringResource(Res.string.settings_app_proxy),
                                 summary = stringResource(Res.string.settings_app_proxy_summary),
                                 onClick = onNavigateAppProxy,
+                            )
+                        })
+                        add(CardItem("wifiPolicy") {
+                            ArrowPreference(
+                                title = stringResource(Res.string.settings_wifi_policy),
+                                summary = stringResource(Res.string.settings_wifi_policy_summary),
+                                onClick = onNavigateWifiPolicy,
                             )
                         })
                         add(CardItem("fileManager") {

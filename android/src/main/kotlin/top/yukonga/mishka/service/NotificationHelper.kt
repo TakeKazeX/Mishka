@@ -24,6 +24,12 @@ object NotificationHelper {
     private const val CHANNEL_PROFILE_RESULT = "mishka_profile_result"
     private val nextResultId = AtomicInteger(100)
 
+    // Wi-Fi 自动切换内部服务通知与状态切换事件通知
+    private const val CHANNEL_WIFI_POLICY_SERVICE = "mishka_wifi_policy_service"
+    private const val CHANNEL_WIFI_POLICY_EVENT = "mishka_wifi_policy_event"
+    const val NOTIFICATION_ID_WIFI_POLICY = 3
+    private val nextWifiPolicyEventId = AtomicInteger(200)
+
     fun createChannels(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java)
         manager.createNotificationChannels(
@@ -50,6 +56,21 @@ object NotificationHelper {
                     NotificationManager.IMPORTANCE_DEFAULT,
                 ).apply {
                     description = context.getString(R.string.channel_profile_result_desc)
+                },
+                NotificationChannel(
+                    CHANNEL_WIFI_POLICY_SERVICE,
+                    context.getString(R.string.channel_wifi_policy_service_name),
+                    NotificationManager.IMPORTANCE_MIN,
+                ).apply {
+                    description = context.getString(R.string.channel_wifi_policy_service_desc)
+                    setShowBadge(false)
+                },
+                NotificationChannel(
+                    CHANNEL_WIFI_POLICY_EVENT,
+                    context.getString(R.string.channel_wifi_policy_event_name),
+                    NotificationManager.IMPORTANCE_DEFAULT,
+                ).apply {
+                    description = context.getString(R.string.channel_wifi_policy_event_desc)
                 },
             )
         )
@@ -116,6 +137,49 @@ object NotificationHelper {
             .setCategory(Notification.CATEGORY_SERVICE)
             .setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
             .build()
+    }
+
+    fun buildWifiPolicyServiceNotification(context: Context): Notification {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context, NOTIFICATION_ID_WIFI_POLICY, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
+        return Notification.Builder(context, CHANNEL_WIFI_POLICY_SERVICE)
+            .setContentTitle(context.getString(R.string.notification_wifi_policy_title))
+            .setContentText(context.getString(R.string.notification_wifi_policy_service_content))
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentIntent(pendingIntent)
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setCategory(Notification.CATEGORY_SERVICE)
+            .setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
+            .build()
+    }
+
+    fun notifyWifiPolicyEvent(context: Context, contentResId: Int) {
+        val id = nextWifiPolicyEventId.getAndIncrement()
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context, id, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
+        val notification = Notification.Builder(context, CHANNEL_WIFI_POLICY_EVENT)
+            .setContentTitle(context.getString(R.string.notification_wifi_policy_title))
+            .setContentText(context.getString(contentResId))
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .setCategory(Notification.CATEGORY_STATUS)
+            .build()
+
+        context.getSystemService(NotificationManager::class.java).notify(id, notification)
     }
 
     // === 配置更新进度通知 ===

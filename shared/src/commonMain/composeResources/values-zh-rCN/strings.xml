@@ -220,6 +220,8 @@
     <string name="settings_meta_summary">统一延迟、嗅探器等</string>
     <string name="settings_app_proxy">分应用代理</string>
     <string name="settings_app_proxy_summary">选择需要代理的应用</string>
+    <string name="settings_wifi_policy">Wi-Fi 自动切换</string>
+    <string name="settings_wifi_policy_summary">在指定 Wi-Fi 下关闭服务或改为直连</string>
     <string name="settings_dynamic_notification">动态通知</string>
     <string name="settings_dynamic_notification_summary">在通知栏显示实时网速和流量</string>
     <string name="settings_dynamic_notification_summary_root_unsupported">VPN 模式专用</string>
@@ -303,6 +305,34 @@
     <string name="network_input_value">输入值</string>
     <string name="network_one_per_line">每行一条</string>
     <string name="settings_override_restart_hint">此页设置修改后需重启代理服务生效</string>
+
+    <!-- Wi-Fi 策略 -->
+    <string name="wifi_policy_title">Wi-Fi 自动切换</string>
+    <string name="wifi_policy_enable">启用</string>
+    <string name="wifi_policy_enable_summary">当前 Wi-Fi 匹配列表时自动应用策略</string>
+    <string name="wifi_policy_notify_switch">切换通知</string>
+    <string name="wifi_policy_notify_switch_summary">仅在 Wi-Fi 策略改变代理状态时通知</string>
+    <string name="wifi_policy_hide_monitor_notification">隐藏等待通知</string>
+    <string name="wifi_policy_hide_monitor_notification_summary">可选。隐藏监控通知可能降低后台自动恢复可靠性。</string>
+    <string name="wifi_policy_action">匹配后执行</string>
+    <string name="wifi_policy_action_stop">关闭服务</string>
+    <string name="wifi_policy_action_stop_summary">匹配 Wi-Fi 时停止代理，断开后自动启动</string>
+    <string name="wifi_policy_action_direct">Direct 模式</string>
+    <string name="wifi_policy_action_direct_summary">无需重启，直接把运行中的代理切到 Direct 模式</string>
+    <string name="wifi_policy_ssids_title">Wi-Fi 名称</string>
+    <string name="wifi_policy_ssids">匹配 SSID</string>
+    <string name="wifi_policy_ssid_add_placeholder">Wi-Fi 名称</string>
+    <string name="wifi_policy_ssid_add">添加 SSID</string>
+    <string name="wifi_policy_ssid_scan">填入当前 Wi-Fi</string>
+    <string name="wifi_policy_ssid_scan_empty">未获取到当前 Wi-Fi，请确认已连接 Wi-Fi 并开启系统定位</string>
+    <string name="wifi_policy_ssid_empty">请先输入 Wi-Fi 名称</string>
+    <string name="wifi_policy_ssid_duplicate">SSID 已存在</string>
+    <string name="wifi_policy_current">当前 Wi-Fi</string>
+    <string name="wifi_policy_unknown_ssid">未知或未连接</string>
+    <string name="wifi_policy_permission">Wi-Fi 权限</string>
+    <string name="wifi_policy_permission_granted">已授权</string>
+    <string name="wifi_policy_permission_missing">读取当前 SSID 需要附近设备和定位权限</string>
+    <string name="wifi_policy_permission_required">需要附近设备和定位权限才能读取当前 SSID</string>
 
     <!-- Meta Settings -->
     <string name="meta_settings_title">Meta 设置</string>

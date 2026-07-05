@@ -6,6 +6,7 @@ import androidx.compose.runtime.remember
 import top.yukonga.mishka.platform.BootStartManager
 import top.yukonga.mishka.platform.FilePicker
 import top.yukonga.mishka.platform.PlatformStorage
+import top.yukonga.mishka.platform.WifiPolicyController
 import top.yukonga.mishka.ui.navigation.AppNavigation
 import top.yukonga.mishka.viewmodel.AppProxyViewModel
 import top.yukonga.mishka.viewmodel.ConnectionViewModel
@@ -43,6 +44,8 @@ fun App(
     bootStartManager: BootStartManager? = null,
     mihomoVersion: String = "",
     onScanQR: ((callback: (String?) -> Unit) -> Unit)? = null,
+    wifiPolicyController: WifiPolicyController? = null,
+    onRequestWifiPermission: (((Boolean) -> Unit) -> Unit)? = null,
     onPredictiveBackChange: ((Boolean) -> Unit)? = null,
     onHideTaskCardChange: ((Boolean) -> Unit)? = null,
     hasRootPermission: Boolean = false,
@@ -78,6 +81,8 @@ fun App(
                 bootStartManager = bootStartManager,
                 mihomoVersion = mihomoVersion,
                 onScanQR = onScanQR,
+                wifiPolicyController = wifiPolicyController,
+                onRequestWifiPermission = onRequestWifiPermission,
                 onPredictiveBackChange = onPredictiveBackChange,
                 onHideTaskCardChange = onHideTaskCardChange,
                 hasRootPermission = hasRootPermission,

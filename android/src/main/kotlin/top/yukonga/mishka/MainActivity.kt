@@ -33,6 +33,7 @@ import top.yukonga.mishka.platform.FilePicker
 import top.yukonga.mishka.platform.PlatformStorage
 import top.yukonga.mishka.platform.ProxyServiceController
 import top.yukonga.mishka.platform.StorageKeys
+import top.yukonga.mishka.platform.WifiPolicyController
 import top.yukonga.mishka.service.AndroidProfileFileManager
 import top.yukonga.mishka.service.RootHelper
 import top.yukonga.mishka.viewmodel.AppProxyViewModel
@@ -64,7 +65,9 @@ class MainActivity : ComponentActivity() {
     private lateinit var filePicker: FilePicker
     private lateinit var scanQrLauncher: ActivityResultLauncher<ScannerConfig>
     private lateinit var vpnPermissionLauncher: ActivityResultLauncher<Intent>
+    private lateinit var wifiPermissionLauncher: ActivityResultLauncher<Array<String>>
     private var qrResultCallback: ((String?) -> Unit)? = null
+    private var wifiPermissionCallback: ((Boolean) -> Unit)? = null
     private val scannerConfig: ScannerConfig by lazy {
         ScannerConfig.build {
             setBarcodeFormats(listOf(BarcodeFormat.FORMAT_QR_CODE))
@@ -138,8 +141,16 @@ class MainActivity : ComponentActivity() {
                 homeViewModel.startProxy()
             }
         }
+        wifiPermissionLauncher = registerForActivityResult(
+            ActivityResultContracts.RequestMultiplePermissions()
+        ) { result ->
+            val granted = result.isNotEmpty() && result.values.all { it }
+            wifiPermissionCallback?.invoke(granted)
+            wifiPermissionCallback = null
+        }
         serviceController.setVpnPermissionLauncher(vpnPermissionLauncher)
         filePicker = FilePicker(this)
+        val wifiPolicyController = WifiPolicyController(this)
         logViewModel = LogViewModel()
         providerViewModel = ProviderViewModel()
         connectionViewModel = ConnectionViewModel()
@@ -249,6 +260,10 @@ class MainActivity : ComponentActivity() {
                     qrResultCallback = callback
                     scanQrLauncher.launch(scannerConfig)
                 },
+                wifiPolicyController = wifiPolicyController,
+                onRequestWifiPermission = { callback ->
+                    requestWifiPolicyPermission(wifiPolicyController, callback)
+                },
                 hasRootPermission = hasRootState.value,
                 onPredictiveBackChange = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                     { enabled ->
@@ -261,6 +276,26 @@ class MainActivity : ComponentActivity() {
                 },
             )
         }
+    }
+
+    private fun requestWifiPolicyPermission(
+        controller: WifiPolicyController,
+        callback: (Boolean) -> Unit,
+    ) {
+        if (controller.hasRequiredPermission()) {
+            callback(true)
+            return
+        }
+        wifiPermissionCallback = callback
+        val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            arrayOf(
+                Manifest.permission.NEARBY_WIFI_DEVICES,
+                Manifest.permission.ACCESS_FINE_LOCATION,
+            )
+        } else {
+            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+        wifiPermissionLauncher.launch(permissions)
     }
 
     override fun onResume() {

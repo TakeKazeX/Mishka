@@ -220,6 +220,8 @@
     <string name="settings_meta_summary">Unified delay, sniffer, etc.</string>
     <string name="settings_app_proxy">Per-App Proxy</string>
     <string name="settings_app_proxy_summary">Select apps to proxy</string>
+    <string name="settings_wifi_policy">Wi-Fi Auto Switch</string>
+    <string name="settings_wifi_policy_summary">Stop service or use DIRECT on selected Wi-Fi</string>
     <string name="settings_dynamic_notification">Dynamic Notification</string>
     <string name="settings_dynamic_notification_summary">Show real-time speed and traffic in notification</string>
     <string name="settings_dynamic_notification_summary_root_unsupported">VPN mode only</string>
@@ -303,6 +305,34 @@
     <string name="network_input_value">Input value</string>
     <string name="network_one_per_line">One per line</string>
     <string name="settings_override_restart_hint">Changes to these settings take effect after restarting the proxy service.</string>
+
+    <!-- Wi-Fi Policy -->
+    <string name="wifi_policy_title">Wi-Fi Auto Switch</string>
+    <string name="wifi_policy_enable">Enable</string>
+    <string name="wifi_policy_enable_summary">Apply policy when current Wi-Fi matches the list</string>
+    <string name="wifi_policy_notify_switch">Switch notifications</string>
+    <string name="wifi_policy_notify_switch_summary">Notify only when Wi-Fi policy changes proxy state</string>
+    <string name="wifi_policy_hide_monitor_notification">Hide waiting notification</string>
+    <string name="wifi_policy_hide_monitor_notification_summary">Optional. Hiding the monitor notification may reduce background auto-restore reliability.</string>
+    <string name="wifi_policy_action">When matched</string>
+    <string name="wifi_policy_action_stop">Stop service</string>
+    <string name="wifi_policy_action_stop_summary">Stop proxy on matched Wi-Fi, restart after disconnecting</string>
+    <string name="wifi_policy_action_direct">Direct mode</string>
+    <string name="wifi_policy_action_direct_summary">Switch the running proxy to Direct mode without restarting</string>
+    <string name="wifi_policy_ssids_title">Wi-Fi Names</string>
+    <string name="wifi_policy_ssids">Matched SSIDs</string>
+    <string name="wifi_policy_ssid_add_placeholder">Wi-Fi name</string>
+    <string name="wifi_policy_ssid_add">Add SSID</string>
+    <string name="wifi_policy_ssid_scan">Fill current Wi-Fi</string>
+    <string name="wifi_policy_ssid_scan_empty">No current Wi-Fi found. Make sure Wi-Fi is connected and system location is enabled.</string>
+    <string name="wifi_policy_ssid_empty">Enter a Wi-Fi name first</string>
+    <string name="wifi_policy_ssid_duplicate">SSID already exists</string>
+    <string name="wifi_policy_current">Current Wi-Fi</string>
+    <string name="wifi_policy_unknown_ssid">Unknown or not connected</string>
+    <string name="wifi_policy_permission">Wi-Fi permission</string>
+    <string name="wifi_policy_permission_granted">Granted</string>
+    <string name="wifi_policy_permission_missing">Nearby devices and location are required to read current SSID</string>
+    <string name="wifi_policy_permission_required">Nearby devices and location permissions are required to read the current SSID</string>
 
     <!-- Meta Settings -->
     <string name="meta_settings_title">Meta Settings</string>
