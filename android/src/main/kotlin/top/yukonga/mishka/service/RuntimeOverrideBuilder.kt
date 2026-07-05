@@ -71,9 +71,13 @@ object RuntimeOverrideBuilder {
         subscriptionMixedPort: Int?,
         tproxyForTether: Boolean = false,
     ): File {
+        val storage = PlatformStorage(context)
+        val wifiRuntimeMode = storage.getString(StorageKeys.WIFI_POLICY_RUNTIME_MODE, "")
+            .takeIf { it == "rule" || it == "global" || it == "direct" }
         val merged = userOverride.copy(
             externalController = null,
             secret = null,
+            mode = wifiRuntimeMode ?: userOverride.mode,
             mixedPort = when {
                 userOverride.mixedPort != null -> userOverride.mixedPort
                 subscriptionMixedPort != null -> null

@@ -8,11 +8,21 @@
     <string name="channel_profile_status_desc">Config download and validation progress</string>
     <string name="channel_profile_result_name">Config Update Result</string>
     <string name="channel_profile_result_desc">Config update success or failure notifications</string>
+    <string name="channel_wifi_policy_service_name">Wi-Fi Auto Switch Service</string>
+    <string name="channel_wifi_policy_service_desc">Internal monitor service for Wi-Fi auto switching</string>
+    <string name="channel_wifi_policy_event_name">Wi-Fi Auto Switch Events</string>
+    <string name="channel_wifi_policy_event_desc">Notifications when Wi-Fi auto switch changes proxy state</string>
 
     <!-- VPN Notifications -->
     <string name="notification_loading">Starting…</string>
     <string name="notification_running_title">Mishka Running</string>
     <string name="notification_running_content">Mode: %1$s</string>
+    <string name="notification_wifi_policy_title">Wi-Fi Auto Switch</string>
+    <string name="notification_wifi_policy_service_content">Waiting for Wi-Fi changes</string>
+    <string name="notification_wifi_policy_stop_enter">Matched Wi-Fi, proxy service stopped</string>
+    <string name="notification_wifi_policy_stop_leave">Left matched Wi-Fi, proxy service restarted</string>
+    <string name="notification_wifi_policy_direct_enter">Matched Wi-Fi, switched to Direct mode</string>
+    <string name="notification_wifi_policy_direct_leave">Left matched Wi-Fi, restored Rule mode</string>
 
     <!-- Profile Update Notifications -->
     <string name="notification_profile_update">Config Update</string>

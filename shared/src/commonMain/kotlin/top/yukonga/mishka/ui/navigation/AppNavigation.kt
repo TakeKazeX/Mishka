@@ -61,6 +61,7 @@ import org.jetbrains.compose.resources.stringResource
 import top.yukonga.mishka.platform.BootStartManager
 import top.yukonga.mishka.platform.FilePicker
 import top.yukonga.mishka.platform.PlatformStorage
+import top.yukonga.mishka.platform.WifiPolicyController
 import top.yukonga.mishka.ui.component.blur.BlurredBar
 import top.yukonga.mishka.ui.component.blur.rememberBlurBackdrop
 import top.yukonga.mishka.ui.navigation3.LocalNavigator
@@ -82,6 +83,7 @@ import top.yukonga.mishka.ui.screen.settings.NetworkSettingsScreen
 import top.yukonga.mishka.ui.screen.settings.RootSettingsScreen
 import top.yukonga.mishka.ui.screen.settings.SettingsScreen
 import top.yukonga.mishka.ui.screen.settings.VpnSettingsScreen
+import top.yukonga.mishka.ui.screen.settings.WifiPolicyScreen
 import top.yukonga.mishka.ui.screen.subscription.SubscriptionAddScreen
 import top.yukonga.mishka.ui.screen.subscription.SubscriptionAddUrlScreen
 import top.yukonga.mishka.ui.screen.subscription.SubscriptionEditScreen
@@ -138,6 +140,8 @@ fun AppNavigation(
     bootStartManager: BootStartManager? = null,
     mihomoVersion: String = "",
     onScanQR: ((callback: (String?) -> Unit) -> Unit)? = null,
+    wifiPolicyController: WifiPolicyController? = null,
+    onRequestWifiPermission: (((Boolean) -> Unit) -> Unit)? = null,
     onPredictiveBackChange: ((Boolean) -> Unit)? = null,
     onHideTaskCardChange: ((Boolean) -> Unit)? = null,
     hasRootPermission: Boolean = false,
@@ -174,6 +178,8 @@ fun AppNavigation(
                     onPredictiveBackChange,
                     onHideTaskCardChange,
                     hasRootPermission,
+                    wifiPolicyController,
+                    onRequestWifiPermission,
                 )
             }
             entry<Route.Subscription> {
@@ -311,6 +317,16 @@ fun AppNavigation(
                     )
                 }
             }
+            entry<Route.WifiPolicy> {
+                storage?.let {
+                    WifiPolicyScreen(
+                        storage = it,
+                        controller = wifiPolicyController,
+                        onRequestPermission = onRequestWifiPermission,
+                        onBack = { navigator.pop() },
+                    )
+                }
+            }
             entry<Route.ExternalControl> {
                 externalControlViewModel?.let {
                     ExternalControlScreen(
@@ -378,6 +394,8 @@ private fun MainPage(
     onPredictiveBackChange: ((Boolean) -> Unit)? = null,
     onHideTaskCardChange: ((Boolean) -> Unit)? = null,
     hasRootPermission: Boolean = false,
+    wifiPolicyController: WifiPolicyController? = null,
+    onRequestWifiPermission: (((Boolean) -> Unit) -> Unit)? = null,
 ) {
     val homeUiState = homeViewModel?.uiState?.collectAsStateWithLifecycle()?.value ?: HomeUiState()
     val selectedPage = mainPagerState.selectedPage
@@ -427,6 +445,7 @@ private fun MainPage(
                     onNavigateMetaSettings = { navigator.push(Route.MetaSettings) },
                     onNavigateExternalControl = { navigator.push(Route.ExternalControl) },
                     onNavigateAppProxy = { navigator.push(Route.AppProxy) },
+                    onNavigateWifiPolicy = { navigator.push(Route.WifiPolicy) },
                     onNavigateFileManager = { navigator.push(Route.FileManager) },
                     onNavigateAbout = { navigator.push(Route.About) },
                     bootStartManager = bootStartManager,
