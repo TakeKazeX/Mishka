@@ -14,7 +14,7 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.lifecycleScope
@@ -37,6 +37,7 @@ import top.yukonga.mishka.platform.StorageKeys
 import top.yukonga.mishka.platform.WifiPolicyController
 import top.yukonga.mishka.service.AndroidProfileFileManager
 import top.yukonga.mishka.service.RootHelper
+import top.yukonga.mishka.ui.theme.readThemeConfig
 import top.yukonga.mishka.viewmodel.AppProxyViewModel
 import top.yukonga.mishka.viewmodel.ConnectionViewModel
 import top.yukonga.mishka.viewmodel.DnsQueryViewModel
@@ -227,11 +228,7 @@ class MainActivity : ComponentActivity() {
             hasRootState.value = hasRoot
         }
 
-        val initialColorMode = when (storage.getString(StorageKeys.DARK_MODE, "system")) {
-            "light" -> 1
-            "dark" -> 2
-            else -> 0
-        }
+        val initialThemeConfig = readThemeConfig(storage)
 
         // 隐藏后台卡片：通过 excludeFromRecents 从最近任务中移除
         if (storage.getString(StorageKeys.HIDE_TASK_CARD, "false") == "true") {
@@ -239,10 +236,10 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            var colorMode by remember { mutableIntStateOf(initialColorMode) }
+            var themeConfig by remember { mutableStateOf(initialThemeConfig) }
             App(
-                colorMode = colorMode,
-                onColorModeChange = { colorMode = it },
+                themeConfig = themeConfig,
+                onThemeConfigChange = { themeConfig = it },
                 homeViewModel = homeViewModel,
                 subscriptionViewModel = subscriptionViewModel,
                 proxyViewModel = proxyViewModel,

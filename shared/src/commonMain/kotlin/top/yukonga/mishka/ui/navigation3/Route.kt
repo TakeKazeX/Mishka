@@ -53,6 +53,9 @@ sealed interface Route : NavKey {
     data object WifiPolicy : Route
 
     @Serializable
+    data object ThemeSettings : Route
+
+    @Serializable
     data object MetaSettings : Route
 
     @Serializable

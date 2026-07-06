@@ -82,8 +82,10 @@ import top.yukonga.mishka.ui.screen.settings.MetaSettingsScreen
 import top.yukonga.mishka.ui.screen.settings.NetworkSettingsScreen
 import top.yukonga.mishka.ui.screen.settings.RootSettingsScreen
 import top.yukonga.mishka.ui.screen.settings.SettingsScreen
+import top.yukonga.mishka.ui.screen.settings.ThemeSettingsScreen
 import top.yukonga.mishka.ui.screen.settings.VpnSettingsScreen
 import top.yukonga.mishka.ui.screen.settings.WifiPolicyScreen
+import top.yukonga.mishka.ui.theme.ThemeConfig
 import top.yukonga.mishka.ui.screen.subscription.SubscriptionAddScreen
 import top.yukonga.mishka.ui.screen.subscription.SubscriptionAddUrlScreen
 import top.yukonga.mishka.ui.screen.subscription.SubscriptionEditScreen
@@ -122,8 +124,8 @@ val LocalMainPagerState = staticCompositionLocalOf<MainPagerState> {
 
 @Composable
 fun AppNavigation(
-    colorMode: Int = 0,
-    onColorModeChange: (Int) -> Unit = {},
+    themeConfig: ThemeConfig = ThemeConfig(),
+    onThemeConfigChange: (ThemeConfig) -> Unit = {},
     homeViewModel: HomeViewModel? = null,
     subscriptionViewModel: SubscriptionViewModel? = null,
     proxyViewModel: ProxyViewModel? = null,
@@ -172,8 +174,8 @@ fun AppNavigation(
                     navigator,
                     mainPagerState,
                     bootStartManager,
-                    colorMode,
-                    onColorModeChange,
+                    themeConfig,
+                    onThemeConfigChange,
                     storage,
                     onPredictiveBackChange,
                     onHideTaskCardChange,
@@ -327,6 +329,17 @@ fun AppNavigation(
                     )
                 }
             }
+            entry<Route.ThemeSettings> {
+                storage?.let {
+                    ThemeSettingsScreen(
+                        storage = it,
+                        themeConfig = themeConfig,
+                        onThemeConfigChange = onThemeConfigChange,
+                        onPredictiveBackChange = onPredictiveBackChange,
+                        onBack = { navigator.pop() },
+                    )
+                }
+            }
             entry<Route.ExternalControl> {
                 externalControlViewModel?.let {
                     ExternalControlScreen(
@@ -388,8 +401,8 @@ private fun MainPage(
     navigator: Navigator,
     mainPagerState: MainPagerState,
     bootStartManager: BootStartManager? = null,
-    colorMode: Int = 0,
-    onColorModeChange: (Int) -> Unit = {},
+    themeConfig: ThemeConfig = ThemeConfig(),
+    onThemeConfigChange: (ThemeConfig) -> Unit = {},
     storage: PlatformStorage? = null,
     onPredictiveBackChange: ((Boolean) -> Unit)? = null,
     onHideTaskCardChange: ((Boolean) -> Unit)? = null,
@@ -446,13 +459,12 @@ private fun MainPage(
                     onNavigateExternalControl = { navigator.push(Route.ExternalControl) },
                     onNavigateAppProxy = { navigator.push(Route.AppProxy) },
                     onNavigateWifiPolicy = { navigator.push(Route.WifiPolicy) },
+                    onNavigateThemeSettings = { navigator.push(Route.ThemeSettings) },
                     onNavigateFileManager = { navigator.push(Route.FileManager) },
                     onNavigateAbout = { navigator.push(Route.About) },
                     bootStartManager = bootStartManager,
-                    colorMode = colorMode,
-                    onColorModeChange = onColorModeChange,
+                    themeConfig = themeConfig,
                     storage = storage,
-                    onPredictiveBackChange = onPredictiveBackChange,
                     onHideTaskCardChange = onHideTaskCardChange,
                     hasRootPermission = hasRootPermission,
                     isProxyRunning = homeUiState.isRunning || homeUiState.isStarting,
