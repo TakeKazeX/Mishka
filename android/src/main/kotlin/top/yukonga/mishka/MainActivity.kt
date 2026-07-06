@@ -28,6 +28,7 @@ import top.yukonga.mishka.data.repository.OverrideJsonStore
 import top.yukonga.mishka.data.repository.ProfileProcessor
 import top.yukonga.mishka.data.repository.SubscriptionRepository
 import top.yukonga.mishka.platform.AppListProvider
+import top.yukonga.mishka.platform.AndroidWifiPolicy
 import top.yukonga.mishka.platform.BootStartManager
 import top.yukonga.mishka.platform.FilePicker
 import top.yukonga.mishka.platform.PlatformStorage
@@ -287,15 +288,7 @@ class MainActivity : ComponentActivity() {
             return
         }
         wifiPermissionCallback = callback
-        val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            arrayOf(
-                Manifest.permission.NEARBY_WIFI_DEVICES,
-                Manifest.permission.ACCESS_FINE_LOCATION,
-            )
-        } else {
-            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
-        }
-        wifiPermissionLauncher.launch(permissions)
+        wifiPermissionLauncher.launch(AndroidWifiPolicy.requiredPermissions())
     }
 
     override fun onResume() {

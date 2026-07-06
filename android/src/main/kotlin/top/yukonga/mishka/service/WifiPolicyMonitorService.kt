@@ -118,7 +118,7 @@ class WifiPolicyMonitorService : Service() {
     private fun startMonitorForeground(): Boolean {
         return try {
             val notification = NotificationHelper.buildWifiPolicyServiceNotification(this)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                 startForeground(
                     NotificationHelper.NOTIFICATION_ID_WIFI_POLICY,
                     notification,
