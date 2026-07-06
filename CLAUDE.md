@@ -43,7 +43,7 @@ Mishka/
 │   │   │   ├── database/             Room 3.0 KMP（AppDatabase + 3 Entity + 3 DAO + ProfileTypeConverter）
 │   │   │   ├── model/                @Serializable 数据模型 + ProfileType enum + ConfigurationOverride
 │   │   │   └── repository/           MihomoRepository + SubscriptionRepository + ProfileProcessor（3 阶段，JNI 化）+ OverrideJsonStore + SubscriptionProxyResolver
-│   │   ├── platform/                 expect 声明（含 Toast）+ ProfileFileManager 接口 + ProxyServiceBridge
+│   │   ├── platform/                 expect 声明（含 Toast）+ ProfileFileManager 接口 + ProxyServiceBridge + WifiPolicyController
 │   │   ├── ui/
 │   │   │   ├── navigation/           AppNavigation（主导航树 + HorizontalPager）
 │   │   │   ├── navigation3/          Route + Navigator（自定义栈）
@@ -106,6 +106,10 @@ MainActivity → App → AppNavigation
   - **ROOT 两子模式共享** MishkaRootService，Intent 通过 `EXTRA_SUBMODE = "tun"/"tproxy"` 区分；attach 路径比对 `ROOT_SUBMODE_ACTIVE` 与请求 submode，不一致 fresh restart
   - ROOT 进程 app 被杀后仍存活，重启 app 通过持久化 PID/secret **attach-only** 重连（绝不因重连失败而全新启动，见关键约束）
   - ROOT 不可用自动回退 VPN（MainActivity 探测失败后回写 `TUN_MODE=vpn`）
+- **Wi-Fi 自动切换**：`WifiPolicyMonitorService` 前台监控当前 active Wi-Fi SSID（精确匹配，去掉 Android 外层双引号，忽略 `<unknown ssid>`），权限不足时不触发策略。设置页支持两种动作：
+  - **停止服务**：进入匹配 Wi-Fi 且代理运行中时记录 `WIFI_POLICY_PENDING_RESTART=true` 后停止代理；离开匹配 Wi-Fi 时仅在 pending 存在时自动启动一次。监控服务可保留前台运行以保证自动恢复。
+  - **Direct 模式**：进入匹配 Wi-Fi 写 `WIFI_POLICY_RUNTIME_MODE=direct`，离开写 `rule`，统一通过 `ProxyServiceController.restart()` 热重载当前服务（VPN / ROOT TUN / ROOT TPROXY 行为一致）；runtime mode 由 `RuntimeOverrideBuilder` 优先于用户 `override.user.json` 注入，不污染持久配置。Starting/Stopping 窗口内的切换会排队，待状态进入 Running 后补一次 restart；离开后临时 `rule` override 自动清理。
+  - Wi-Fi 监控通知与切换事件通知使用独立 channel；切换通知可关闭，隐藏监控前台通知为可选项且会降低后台自动恢复可靠性。开机 / 包替换后 `WifiPolicyBootReceiver` 在功能开启或待恢复时恢复监控。
 - **状态桥接**：ProxyServiceBridge（全局 StateFlow + TunMode），Service 写入、ViewModel 读取
 - **进程模型**：单进程（VpnService 和 UI 同进程），ROOT 模式 mihomo 为独立 root 进程
 - **数据持久化**：Room 3.0 KMP（结构化数据）+ PlatformStorage（简单偏好）+ StorageKeys（key 常量）+ OverrideJsonStore（`override.user.json` + ConfigurationOverride `@Serializable`）；store 自带 `state: StateFlow<ConfigurationOverride>` + `update(transform)`，Settings 三个切片 VM 共享同一实例
@@ -196,6 +200,7 @@ files/mihomo/
 | MetaSettings       | data object | MetaSettingsScreen            | 设置页                 |
 | ExternalControl    | data object | ExternalControlScreen         | 设置页                 |
 | AppProxy           | data object | AppProxyScreen                | 设置页                 |
+| WifiPolicy         | data object | WifiPolicyScreen              | 设置页                 |
 | FileManager        | data object | FileManagerScreen             | 设置页                 |
 | FileManagerEditor  | data class  | FileManagerEditorScreen       | FileManager 点击项     |
 | About              | data object | AboutScreen                   | 设置页                 |
@@ -214,6 +219,7 @@ files/mihomo/
 | ProviderScreen           | ProviderViewModel     | Provider 列表 + 刷新                                            |
 | DnsQueryScreen           | DnsQueryViewModel     | DNS 查询（A/AAAA/CNAME/MX/TXT/NS）                              |
 | AppProxyScreen           | AppProxyViewModel     | 应用代理白/黑名单                                               |
+| WifiPolicyScreen         | —                     | Wi-Fi 自动切换（SSID 列表、停止服务 / Direct 模式、通知策略）   |
 | VpnSettingsScreen        | —                     | VPN 设置（系统代理/排除路由等），仅 VPN 模式可见                |
 | RootSettingsScreen       | —                     | ROOT 设置（TUN 设备名 + 热点客户端处置），仅 ROOT 模式可见      |
 | NetworkSettingsScreen    | NetworkSettingsVM     | 端口/局域网/IPv6/DNS                                            |
@@ -238,6 +244,7 @@ files/mihomo/
 | FilePicker                    | class          | SAF                                | 文件对话框  |
 | AppIcon                       | fun            | BitmapFactory                      | 资源加载    |
 | IconDiskCache                 | object         | 磁盘缓存                           | 空实现      |
+| WifiPolicyController          | class          | Wi-Fi 权限 / 当前 SSID / 监控服务启停 | 空实现      |
 | showToast / initToastPlatform | fun            | android.widget.Toast（主线程派发） | 空实现      |
 
 ## Android 服务层
@@ -252,8 +259,10 @@ files/mihomo/
 | DynamicNotificationManager | 动态通知（订阅 `MihomoApplication.connectionManager.repository` 的 traffic 流，不持有自己的 HttpClient），两个 Service 共用                                  |
 | MishkaTileService          | Quick Settings Tile 一键启停代理（双模式路由）                                                                                                               |
 | BootReceiver               | 开机自启（默认 disabled，动态启用）                                                                                                                          |
+| WifiPolicyMonitorService   | Wi-Fi 自动切换前台监控服务（NetworkCallback + 当前 SSID 匹配；停止服务 / Direct runtime mode + 统一重载）                                                     |
+| WifiPolicyBootReceiver     | 开机 / 包替换后在 Wi-Fi 自动切换启用或待恢复时拉起监控服务                                                                                                    |
 | ConfigGenerator            | mihomo 工作目录/secret 生成工具（getWorkDir/getConfigFile/generateSecret）                                                                                   |
-| RuntimeOverrideBuilder     | 运行时 override.run.json 装配（按 Submode = Vpn/RootTun/RootTproxy 分支：TUN fd / auto-route+include/exclude-package / tproxy-port+routing-mark+dns.listen） |
+| RuntimeOverrideBuilder     | 运行时 override.run.json 装配（按 Submode = Vpn/RootTun/RootTproxy 分支：TUN fd / auto-route+include/exclude-package / tproxy-port+routing-mark+dns.listen；Wi-Fi runtime mode 优先于用户持久 mode） |
 | ProfileFileOps             | 订阅目录管理（imported/pending/processing/runtime + GeoIP + ROOT 沙箱）                                                                                      |
 | AndroidProfileFileManager  | ProfileFileManager 接口的 Android 实现                                                                                                                       |
 | MihomoRunner               | mihomo runtime 进程管理（VPN: JNI fork+exec / ROOT: su）                                                                                                     |
