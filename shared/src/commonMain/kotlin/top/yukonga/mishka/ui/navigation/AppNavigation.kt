@@ -41,7 +41,10 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -66,6 +69,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import mishka.shared.generated.resources.Res
 import mishka.shared.generated.resources.nav_home
 import mishka.shared.generated.resources.nav_proxy
@@ -144,6 +151,80 @@ import top.yukonga.miuix.kmp.icon.extended.UploadCloud
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import kotlin.math.abs
 
+private val NavBackStackSaver = Saver<SnapshotStateList<NavKey>, List<String>>(
+    save = { backStack ->
+        backStack.mapNotNull { key ->
+            (key as? Route)?.toSavedRoute()?.let { Json.encodeToString(it) }
+        }.ifEmpty {
+            listOf(Json.encodeToString(SavedRoute("main")))
+        }
+    },
+    restore = { savedRoutes ->
+        val restoredRoutes = savedRoutes.mapNotNull { value ->
+            runCatching { Json.decodeFromString<SavedRoute>(value).toRoute() }.getOrNull()
+        }
+        mutableStateListOf<NavKey>().apply {
+            if (restoredRoutes.firstOrNull() !is Route.Main) add(Route.Main)
+            addAll(restoredRoutes.ifEmpty { listOf(Route.Main) })
+        }
+    },
+)
+
+@Serializable
+private data class SavedRoute(
+    val name: String,
+    val args: List<String> = emptyList(),
+)
+
+private fun Route.toSavedRoute(): SavedRoute = when (this) {
+    Route.Main -> SavedRoute("main")
+    Route.Subscription -> SavedRoute("subscription")
+    Route.SubscriptionAdd -> SavedRoute("subscription_add")
+    is Route.SubscriptionAddUrl -> SavedRoute("subscription_add_url", listOf(initialUrl))
+    Route.Log -> SavedRoute("log")
+    Route.Provider -> SavedRoute("provider")
+    Route.DnsQuery -> SavedRoute("dns_query")
+    Route.Connection -> SavedRoute("connection")
+    Route.VpnSettings -> SavedRoute("vpn_settings")
+    Route.RootSettings -> SavedRoute("root_settings")
+    Route.NetworkSettings -> SavedRoute("network_settings")
+    Route.ExternalControl -> SavedRoute("external_control")
+    Route.FileManager -> SavedRoute("file_manager")
+    is Route.FileManagerEditor -> SavedRoute("file_manager_editor", listOf(uuid, relativePath))
+    Route.AppProxy -> SavedRoute("app_proxy")
+    Route.WifiPolicy -> SavedRoute("wifi_policy")
+    Route.ThemeSettings -> SavedRoute("theme_settings")
+    Route.MetaSettings -> SavedRoute("meta_settings")
+    is Route.SubscriptionEdit -> SavedRoute("subscription_edit", listOf(uuid))
+    Route.About -> SavedRoute("about")
+}
+
+private fun SavedRoute.toRoute(): Route? = when (name) {
+    "main" -> Route.Main
+    "subscription" -> Route.Subscription
+    "subscription_add" -> Route.SubscriptionAdd
+    "subscription_add_url" -> Route.SubscriptionAddUrl(initialUrl = args.getOrElse(0) { "" })
+    "log" -> Route.Log
+    "provider" -> Route.Provider
+    "dns_query" -> Route.DnsQuery
+    "connection" -> Route.Connection
+    "vpn_settings" -> Route.VpnSettings
+    "root_settings" -> Route.RootSettings
+    "network_settings" -> Route.NetworkSettings
+    "external_control" -> Route.ExternalControl
+    "file_manager" -> Route.FileManager
+    "file_manager_editor" -> args.getOrNull(0)?.let { uuid ->
+        Route.FileManagerEditor(uuid = uuid, relativePath = args.getOrElse(1) { "" })
+    }
+    "app_proxy" -> Route.AppProxy
+    "wifi_policy" -> Route.WifiPolicy
+    "theme_settings" -> Route.ThemeSettings
+    "meta_settings" -> Route.MetaSettings
+    "subscription_edit" -> args.getOrNull(0)?.let { Route.SubscriptionEdit(it) }
+    "about" -> Route.About
+    else -> null
+}
+
 val LocalMainPagerState = staticCompositionLocalOf<MainPagerState> {
     error("LocalMainPagerState not provided")
 }
@@ -174,7 +255,7 @@ fun AppNavigation(
     onHideTaskCardChange: ((Boolean) -> Unit)? = null,
     hasRootPermission: Boolean = false,
 ) {
-    val backStack = remember { mutableStateListOf<NavKey>(Route.Main) }
+    val backStack = rememberSaveable(saver = NavBackStackSaver) { mutableStateListOf<NavKey>(Route.Main) }
     val navigator = remember { Navigator(backStack) }
     val pagerState = rememberPagerState(pageCount = { 4 })
     val mainPagerState = rememberMainPagerState(pagerState)

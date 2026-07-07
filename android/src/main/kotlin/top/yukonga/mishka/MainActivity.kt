@@ -266,7 +266,7 @@ class MainActivity : ComponentActivity() {
                 onPredictiveBackChange = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                     { enabled ->
                         MishkaApplication.setEnableOnBackInvokedCallback(applicationInfo, enabled)
-                        recreate()
+                        recreateWithoutTransition()
                     }
                 } else null,
                 onHideTaskCardChange = { enabled ->
@@ -274,6 +274,13 @@ class MainActivity : ComponentActivity() {
                 },
             )
         }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun recreateWithoutTransition() {
+        overridePendingTransition(0, 0)
+        recreate()
+        overridePendingTransition(0, 0)
     }
 
     private fun requestWifiPolicyPermission(
