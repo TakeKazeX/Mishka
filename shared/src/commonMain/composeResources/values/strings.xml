@@ -241,6 +241,8 @@
     <string name="settings_theme_monet_summary">Use the system dynamic color palette when available</string>
     <string name="settings_theme_blur">Blur Effects</string>
     <string name="settings_theme_blur_summary">Use blur effects for bars and layered surfaces</string>
+    <string name="settings_theme_density_scale">App DPI Scale</string>
+    <string name="settings_theme_density_scale_summary">Adjust the overall app interface size (80%-110%)</string>
     <string name="settings_theme_floating_bottom_bar">Floating Bottom Bar</string>
     <string name="settings_theme_floating_bottom_bar_summary">Use a floating bottom navigation bar on phones</string>
     <string name="settings_theme_floating_bottom_bar_style">Floating Bottom Bar Style</string>

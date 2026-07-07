@@ -241,6 +241,8 @@
     <string name="settings_theme_monet_summary">可用时使用系统动态取色</string>
     <string name="settings_theme_blur">模糊效果</string>
     <string name="settings_theme_blur_summary">为栏和层叠表面使用模糊效果</string>
+    <string name="settings_theme_density_scale">应用 DPI 缩放</string>
+    <string name="settings_theme_density_scale_summary">调整应用界面整体大小（80%-110%）</string>
     <string name="settings_theme_floating_bottom_bar">悬浮底栏</string>
     <string name="settings_theme_floating_bottom_bar_summary">在手机布局中使用悬浮底部导航栏</string>
     <string name="settings_theme_floating_bottom_bar_style">悬浮底栏样式</string>

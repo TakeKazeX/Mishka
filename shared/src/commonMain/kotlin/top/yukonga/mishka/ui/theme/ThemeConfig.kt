@@ -16,7 +16,14 @@ data class ThemeConfig(
     val floatingBottomBarStyle: FloatingBottomBarStyle = FloatingBottomBarStyle.Miuix,
     val bottomBarMode: BottomBarMode = BottomBarMode.IconAndText,
     val bottomBarBlurEnabled: Boolean = true,
+    val densityScale: Float = DefaultDensityScale,
 )
+
+const val MinDensityScale = 0.8f
+const val MaxDensityScale = 1.1f
+const val DefaultDensityScale = 1f
+
+fun normalizeDensityScale(value: Float): Float = value.coerceIn(MinDensityScale, MaxDensityScale)
 
 enum class FloatingBottomBarStyle(val storageValue: String) {
     Miuix("miuix"),
@@ -88,6 +95,10 @@ fun readThemeConfig(storage: PlatformStorage): ThemeConfig {
             storage.getString(StorageKeys.THEME_BOTTOM_BAR_MODE, BottomBarMode.IconAndText.storageValue),
         ),
         bottomBarBlurEnabled = storage.getString(StorageKeys.THEME_BOTTOM_BAR_BLUR, "true") != "false",
+        densityScale = normalizeDensityScale(
+            storage.getString(StorageKeys.THEME_DENSITY_SCALE, DefaultDensityScale.toString()).toFloatOrNull()
+                ?: DefaultDensityScale,
+        ),
     )
 }
 
@@ -109,4 +120,5 @@ fun writeThemeConfig(storage: PlatformStorage, config: ThemeConfig) {
     storage.putString(StorageKeys.THEME_FLOATING_BOTTOM_BAR_STYLE, config.floatingBottomBarStyle.storageValue)
     storage.putString(StorageKeys.THEME_BOTTOM_BAR_MODE, config.bottomBarMode.storageValue)
     storage.putString(StorageKeys.THEME_BOTTOM_BAR_BLUR, config.bottomBarBlurEnabled.toString())
+    storage.putString(StorageKeys.THEME_DENSITY_SCALE, normalizeDensityScale(config.densityScale).toString())
 }

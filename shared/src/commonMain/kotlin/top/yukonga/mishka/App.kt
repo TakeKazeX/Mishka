@@ -5,6 +5,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import top.yukonga.mishka.platform.BootStartManager
 import top.yukonga.mishka.platform.FilePicker
 import top.yukonga.mishka.platform.PlatformStorage
@@ -101,7 +103,15 @@ fun App(
     }
 
     MiuixTheme(colors = themedColors) {
+        val currentDensity = LocalDensity.current
+        val appDensity = remember(currentDensity, themeConfig.densityScale) {
+            Density(
+                density = currentDensity.density * themeConfig.densityScale,
+                fontScale = currentDensity.fontScale,
+            )
+        }
         CompositionLocalProvider(
+            LocalDensity provides appDensity,
             LocalBlurEnabled provides themeConfig.blurEnabled,
             LocalContentColor provides MiuixTheme.colorScheme.onBackground,
         ) {

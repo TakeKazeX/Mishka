@@ -5,11 +5,23 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
+import androidx.compose.foundation.clickable
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -17,9 +29,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import mishka.shared.generated.resources.Res
 import mishka.shared.generated.resources.common_back
+import mishka.shared.generated.resources.common_cancel
+import mishka.shared.generated.resources.common_confirm
 import mishka.shared.generated.resources.settings_predictive_back
 import mishka.shared.generated.resources.settings_predictive_back_summary
 import mishka.shared.generated.resources.settings_theme_accent_blue
@@ -40,6 +55,8 @@ import mishka.shared.generated.resources.settings_theme_bottom_bar_mode
 import mishka.shared.generated.resources.settings_theme_blur
 import mishka.shared.generated.resources.settings_theme_blur_summary
 import mishka.shared.generated.resources.settings_theme_dark
+import mishka.shared.generated.resources.settings_theme_density_scale
+import mishka.shared.generated.resources.settings_theme_density_scale_summary
 import mishka.shared.generated.resources.settings_theme_floating_bottom_bar
 import mishka.shared.generated.resources.settings_theme_floating_bottom_bar_style
 import mishka.shared.generated.resources.settings_theme_floating_bottom_bar_style_ios_like
@@ -73,16 +90,25 @@ import top.yukonga.mishka.ui.component.blur.rememberBlurBackdrop
 import top.yukonga.mishka.ui.component.groupedCardItems
 import top.yukonga.mishka.ui.theme.BottomBarMode
 import top.yukonga.mishka.ui.theme.FloatingBottomBarStyle
+import top.yukonga.mishka.ui.theme.MaxDensityScale
+import top.yukonga.mishka.ui.theme.MinDensityScale
 import top.yukonga.mishka.ui.theme.ThemeAccentColor
 import top.yukonga.mishka.ui.theme.ThemeConfig
 import top.yukonga.mishka.ui.theme.ThemePaletteStyles
+import top.yukonga.mishka.ui.theme.normalizeDensityScale
 import top.yukonga.mishka.ui.theme.writeThemeConfig
 import top.yukonga.mishka.ui.util.horizontalCutoutPadding
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.Slider
 import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
@@ -93,6 +119,8 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.theme.ThemePaletteStyle
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
+import top.yukonga.miuix.kmp.window.WindowDialog
+import kotlin.math.roundToInt
 
 @Composable
 fun ThemeSettingsScreen(
@@ -106,10 +134,32 @@ fun ThemeSettingsScreen(
     var isPredictiveBackEnabled by remember {
         mutableStateOf(storage.getString(StorageKeys.PREDICTIVE_BACK, "false") == "true")
     }
+    var densityScaleDraft by remember { mutableStateOf((themeConfig.densityScale * 100f).roundToInt().toFloat()) }
+    var showDensityScaleDialog by remember { mutableStateOf(false) }
+    val densityScaleTextState = rememberTextFieldState()
+
+    LaunchedEffect(themeConfig.densityScale) {
+        densityScaleDraft = (themeConfig.densityScale * 100f).roundToInt().toFloat()
+    }
 
     fun updateTheme(next: ThemeConfig) {
         writeThemeConfig(storage, next)
         onThemeConfigChange(next)
+    }
+
+    fun updateDensityScale(percent: Float) {
+        val nextPercent = percent.coerceIn(
+            MinDensityScale * 100f,
+            MaxDensityScale * 100f,
+        )
+        val nextScale = normalizeDensityScale(nextPercent / 100f)
+        densityScaleDraft = nextScale * 100f
+        updateTheme(themeConfig.copy(densityScale = nextScale))
+    }
+
+    fun openDensityScaleDialog() {
+        densityScaleTextState.setTextAndPlaceCursorAtEnd(formatDensityScaleInput(densityScaleDraft))
+        showDensityScaleDialog = true
     }
 
     val themeItems = listOf(
@@ -311,10 +361,151 @@ fun ThemeSettingsScreen(
                             )
                         })
                     }
+                    add(CardItem("densityScale") {
+                        DensityScalePreference(
+                            title = stringResource(Res.string.settings_theme_density_scale),
+                            summary = stringResource(Res.string.settings_theme_density_scale_summary),
+                            value = densityScaleDraft.coerceIn(
+                                MinDensityScale * 100f,
+                                MaxDensityScale * 100f,
+                            ),
+                            valueText = formatDensityScalePercent(densityScaleDraft),
+                            valueRange = (MinDensityScale * 100f)..(MaxDensityScale * 100f),
+                            keyPoints = listOf(80f, 90f, 100f, 110f),
+                            onClick = ::openDensityScaleDialog,
+                            onValueChange = { value ->
+                                densityScaleDraft = value
+                            },
+                            onValueChangeFinished = {
+                                updateDensityScale(densityScaleDraft)
+                            },
+                        )
+                    })
                 },
             )
+            item { Spacer(Modifier.height(24.dp).navigationBarsPadding()) }
 
         }
+    }
+
+    DensityScaleDialog(
+        show = showDensityScaleDialog,
+        textState = densityScaleTextState,
+        onDismiss = { showDensityScaleDialog = false },
+        onConfirm = { percent ->
+            updateDensityScale(percent)
+            showDensityScaleDialog = false
+        },
+    )
+}
+
+@Composable
+private fun DensityScalePreference(
+    title: String,
+    summary: String,
+    value: Float,
+    valueText: String,
+    valueRange: ClosedFloatingPointRange<Float>,
+    keyPoints: List<Float>,
+    onClick: () -> Unit,
+    onValueChange: (Float) -> Unit,
+    onValueChangeFinished: () -> Unit,
+) {
+    BasicComponent(
+        bottomAction = {
+            Slider(
+                value = value,
+                onValueChange = onValueChange,
+                modifier = Modifier.fillMaxWidth(),
+                valueRange = valueRange,
+                onValueChangeFinished = onValueChangeFinished,
+                showKeyPoints = true,
+                keyPoints = keyPoints,
+            )
+        },
+        endActions = {
+            Text(
+                text = valueText,
+                modifier = Modifier.clickable(onClick = onClick),
+                fontSize = MiuixTheme.textStyles.body2.fontSize,
+                color = MiuixTheme.colorScheme.onSurfaceVariantActions,
+            )
+        },
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick),
+        ) {
+            Text(
+                text = title,
+                fontSize = MiuixTheme.textStyles.headline1.fontSize,
+                color = MiuixTheme.colorScheme.onBackground,
+            )
+            Text(
+                text = summary,
+                fontSize = MiuixTheme.textStyles.body2.fontSize,
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+            )
+        }
+    }
+}
+
+@Composable
+private fun DensityScaleDialog(
+    show: Boolean,
+    textState: TextFieldState,
+    onDismiss: () -> Unit,
+    onConfirm: (Float) -> Unit,
+) {
+    WindowDialog(
+        show = show,
+        title = stringResource(Res.string.settings_theme_density_scale),
+        summary = stringResource(Res.string.settings_theme_density_scale_summary),
+        onDismissRequest = onDismiss,
+    ) {
+        TextField(
+            state = textState,
+            modifier = Modifier.fillMaxWidth(),
+            label = "80-110%",
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+        )
+        Spacer(Modifier.height(12.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            TextButton(
+                text = stringResource(Res.string.common_cancel),
+                modifier = Modifier.weight(1f),
+                onClick = onDismiss,
+            )
+            TextButton(
+                text = stringResource(Res.string.common_confirm),
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.textButtonColorsPrimary(),
+                onClick = {
+                    val percent = textState.text.toString().trim().removeSuffix("%").toFloatOrNull()
+                    if (percent != null) {
+                        onConfirm(percent.coerceIn(
+                            MinDensityScale * 100f,
+                            MaxDensityScale * 100f,
+                        ))
+                    }
+                },
+            )
+        }
+    }
+}
+
+private fun formatDensityScalePercent(value: Float): String = "${formatDensityScaleInput(value)}%"
+
+private fun formatDensityScaleInput(value: Float): String {
+    val tenths = (value * 10f).roundToInt()
+    return if (tenths % 10 == 0) {
+        (tenths / 10).toString()
+    } else {
+        "${tenths / 10}.${tenths % 10}"
     }
 }
 

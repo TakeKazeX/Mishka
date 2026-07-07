@@ -90,6 +90,7 @@ object StorageKeys {
     const val THEME_FLOATING_BOTTOM_BAR_STYLE = "theme_floating_bottom_bar_style"
     const val THEME_BOTTOM_BAR_MODE = "theme_bottom_bar_mode"
     const val THEME_BOTTOM_BAR_BLUR = "theme_bottom_bar_blur"
+    const val THEME_DENSITY_SCALE = "theme_density_scale"
     const val DYNAMIC_NOTIFICATION = "dynamic_notification"
     const val PREDICTIVE_BACK = "predictive_back"
     const val HIDE_TASK_CARD = "hide_task_card"
