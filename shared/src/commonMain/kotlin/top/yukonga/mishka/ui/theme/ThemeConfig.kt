@@ -12,7 +12,31 @@ data class ThemeConfig(
     val paletteStyle: ThemePaletteStyle = ThemePaletteStyle.TonalSpot,
     val accentColor: ThemeAccentColor = ThemeAccentColor.Default,
     val blurEnabled: Boolean = true,
+    val floatingBottomBar: Boolean = false,
+    val floatingBottomBarStyle: FloatingBottomBarStyle = FloatingBottomBarStyle.Miuix,
+    val bottomBarMode: BottomBarMode = BottomBarMode.IconAndText,
+    val bottomBarBlurEnabled: Boolean = true,
 )
+
+enum class FloatingBottomBarStyle(val storageValue: String) {
+    Miuix("miuix"),
+    IosLike("ios_like");
+
+    companion object {
+        fun fromStorage(value: String): FloatingBottomBarStyle =
+            entries.firstOrNull { it.storageValue == value } ?: Miuix
+    }
+}
+
+enum class BottomBarMode(val storageValue: String) {
+    IconAndText("icon_and_text"),
+    IconOnly("icon_only");
+
+    companion object {
+        fun fromStorage(value: String): BottomBarMode =
+            entries.firstOrNull { it.storageValue == value } ?: IconAndText
+    }
+}
 
 enum class ThemeAccentColor(
     val storageValue: String,
@@ -56,6 +80,14 @@ fun readThemeConfig(storage: PlatformStorage): ThemeConfig {
             storage.getString(StorageKeys.THEME_ACCENT_COLOR, ThemeAccentColor.Default.storageValue),
         ),
         blurEnabled = storage.getString(StorageKeys.THEME_BLUR, "true") != "false",
+        floatingBottomBar = storage.getString(StorageKeys.THEME_FLOATING_BOTTOM_BAR, "false") == "true",
+        floatingBottomBarStyle = FloatingBottomBarStyle.fromStorage(
+            storage.getString(StorageKeys.THEME_FLOATING_BOTTOM_BAR_STYLE, FloatingBottomBarStyle.Miuix.storageValue),
+        ),
+        bottomBarMode = BottomBarMode.fromStorage(
+            storage.getString(StorageKeys.THEME_BOTTOM_BAR_MODE, BottomBarMode.IconAndText.storageValue),
+        ),
+        bottomBarBlurEnabled = storage.getString(StorageKeys.THEME_BOTTOM_BAR_BLUR, "true") != "false",
     )
 }
 
@@ -73,4 +105,8 @@ fun writeThemeConfig(storage: PlatformStorage, config: ThemeConfig) {
     storage.putString(StorageKeys.THEME_PALETTE_STYLE, config.paletteStyle.name)
     storage.putString(StorageKeys.THEME_ACCENT_COLOR, config.accentColor.storageValue)
     storage.putString(StorageKeys.THEME_BLUR, config.blurEnabled.toString())
+    storage.putString(StorageKeys.THEME_FLOATING_BOTTOM_BAR, config.floatingBottomBar.toString())
+    storage.putString(StorageKeys.THEME_FLOATING_BOTTOM_BAR_STYLE, config.floatingBottomBarStyle.storageValue)
+    storage.putString(StorageKeys.THEME_BOTTOM_BAR_MODE, config.bottomBarMode.storageValue)
+    storage.putString(StorageKeys.THEME_BOTTOM_BAR_BLUR, config.bottomBarBlurEnabled.toString())
 }

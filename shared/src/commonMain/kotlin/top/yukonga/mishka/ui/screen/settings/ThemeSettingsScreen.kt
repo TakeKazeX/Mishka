@@ -32,9 +32,19 @@ import mishka.shared.generated.resources.settings_theme_accent_red
 import mishka.shared.generated.resources.settings_theme_accent_teal
 import mishka.shared.generated.resources.settings_theme_accent_title
 import mishka.shared.generated.resources.settings_theme_accent_yellow
+import mishka.shared.generated.resources.settings_theme_bottom_bar_blur
+import mishka.shared.generated.resources.settings_theme_bottom_bar_blur_summary
+import mishka.shared.generated.resources.settings_theme_bottom_bar_icon_and_text
+import mishka.shared.generated.resources.settings_theme_bottom_bar_icon_only
+import mishka.shared.generated.resources.settings_theme_bottom_bar_mode
 import mishka.shared.generated.resources.settings_theme_blur
 import mishka.shared.generated.resources.settings_theme_blur_summary
 import mishka.shared.generated.resources.settings_theme_dark
+import mishka.shared.generated.resources.settings_theme_floating_bottom_bar
+import mishka.shared.generated.resources.settings_theme_floating_bottom_bar_style
+import mishka.shared.generated.resources.settings_theme_floating_bottom_bar_style_ios_like
+import mishka.shared.generated.resources.settings_theme_floating_bottom_bar_style_miuix
+import mishka.shared.generated.resources.settings_theme_floating_bottom_bar_summary
 import mishka.shared.generated.resources.settings_theme_light
 import mishka.shared.generated.resources.settings_theme_mode
 import mishka.shared.generated.resources.settings_theme_monet
@@ -61,6 +71,8 @@ import top.yukonga.mishka.ui.component.CardItem
 import top.yukonga.mishka.ui.component.blur.BlurredBar
 import top.yukonga.mishka.ui.component.blur.rememberBlurBackdrop
 import top.yukonga.mishka.ui.component.groupedCardItems
+import top.yukonga.mishka.ui.theme.BottomBarMode
+import top.yukonga.mishka.ui.theme.FloatingBottomBarStyle
 import top.yukonga.mishka.ui.theme.ThemeAccentColor
 import top.yukonga.mishka.ui.theme.ThemeConfig
 import top.yukonga.mishka.ui.theme.ThemePaletteStyles
@@ -111,6 +123,13 @@ fun ThemeSettingsScreen(
     val accentOptions = ThemeAccentColor.entries.toList()
     val accentItems = accentOptions.map { accent -> accent.label() }
     val selectedAccentIndex = accentOptions.indexOf(themeConfig.accentColor).coerceAtLeast(0)
+    val floatingBottomBarStyles = FloatingBottomBarStyle.entries.toList()
+    val floatingBottomBarStyleItems = floatingBottomBarStyles.map { style -> style.label() }
+    val selectedFloatingBottomBarStyleIndex =
+        floatingBottomBarStyles.indexOf(themeConfig.floatingBottomBarStyle).coerceAtLeast(0)
+    val bottomBarModes = BottomBarMode.entries.toList()
+    val bottomBarModeItems = bottomBarModes.map { mode -> mode.label() }
+    val selectedBottomBarModeIndex = bottomBarModes.indexOf(themeConfig.bottomBarMode).coerceAtLeast(0)
     val isBlurSupported = isRuntimeShaderSupported()
 
     val backdrop = rememberBlurBackdrop()
@@ -219,6 +238,65 @@ fun ThemeSettingsScreen(
                             enabled = isBlurSupported,
                         )
                     })
+                    add(CardItem("floatingBottomBar") {
+                        Column {
+                            SwitchPreference(
+                                title = stringResource(Res.string.settings_theme_floating_bottom_bar),
+                                summary = stringResource(Res.string.settings_theme_floating_bottom_bar_summary),
+                                checked = themeConfig.floatingBottomBar,
+                                onCheckedChange = { checked ->
+                                    updateTheme(themeConfig.copy(floatingBottomBar = checked))
+                                },
+                            )
+                            AnimatedVisibility(
+                                visible = themeConfig.floatingBottomBar,
+                                enter = expandVertically() + fadeIn(),
+                                exit = shrinkVertically() + fadeOut(),
+                            ) {
+                                OverlayDropdownPreference(
+                                    title = stringResource(Res.string.settings_theme_floating_bottom_bar_style),
+                                    summary = floatingBottomBarStyleItems.getOrElse(
+                                        selectedFloatingBottomBarStyleIndex,
+                                    ) { floatingBottomBarStyleItems.first() },
+                                    items = floatingBottomBarStyleItems,
+                                    selectedIndex = selectedFloatingBottomBarStyleIndex,
+                                    onSelectedIndexChange = { index ->
+                                        updateTheme(
+                                            themeConfig.copy(
+                                                floatingBottomBarStyle = floatingBottomBarStyles[index],
+                                            ),
+                                        )
+                                    },
+                                )
+                            }
+                            OverlayDropdownPreference(
+                                title = stringResource(Res.string.settings_theme_bottom_bar_mode),
+                                summary = bottomBarModeItems.getOrElse(
+                                    selectedBottomBarModeIndex,
+                                ) { bottomBarModeItems.first() },
+                                items = bottomBarModeItems,
+                                selectedIndex = selectedBottomBarModeIndex,
+                                onSelectedIndexChange = { index ->
+                                    updateTheme(
+                                        themeConfig.copy(
+                                            bottomBarMode = bottomBarModes[index],
+                                        ),
+                                    )
+                                },
+                            )
+                        }
+                    })
+                    add(CardItem("bottomBarBlur") {
+                        SwitchPreference(
+                            title = stringResource(Res.string.settings_theme_bottom_bar_blur),
+                            summary = stringResource(Res.string.settings_theme_bottom_bar_blur_summary),
+                            checked = themeConfig.bottomBarBlurEnabled && themeConfig.blurEnabled && isBlurSupported,
+                            onCheckedChange = { checked ->
+                                updateTheme(themeConfig.copy(bottomBarBlurEnabled = checked))
+                            },
+                            enabled = themeConfig.blurEnabled && isBlurSupported,
+                        )
+                    })
                     if (onPredictiveBackChange != null) {
                         add(CardItem("predictiveBack") {
                             SwitchPreference(
@@ -267,5 +345,21 @@ private fun ThemeAccentColor.label(): String = stringResource(
         ThemeAccentColor.Yellow -> Res.string.settings_theme_accent_yellow
         ThemeAccentColor.Green -> Res.string.settings_theme_accent_green
         ThemeAccentColor.Teal -> Res.string.settings_theme_accent_teal
+    },
+)
+
+@Composable
+private fun FloatingBottomBarStyle.label(): String = stringResource(
+    when (this) {
+        FloatingBottomBarStyle.Miuix -> Res.string.settings_theme_floating_bottom_bar_style_miuix
+        FloatingBottomBarStyle.IosLike -> Res.string.settings_theme_floating_bottom_bar_style_ios_like
+    },
+)
+
+@Composable
+private fun BottomBarMode.label(): String = stringResource(
+    when (this) {
+        BottomBarMode.IconAndText -> Res.string.settings_theme_bottom_bar_icon_and_text
+        BottomBarMode.IconOnly -> Res.string.settings_theme_bottom_bar_icon_only
     },
 )

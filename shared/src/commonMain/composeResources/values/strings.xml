@@ -241,6 +241,16 @@
     <string name="settings_theme_monet_summary">Use the system dynamic color palette when available</string>
     <string name="settings_theme_blur">Blur Effects</string>
     <string name="settings_theme_blur_summary">Use blur effects for bars and layered surfaces</string>
+    <string name="settings_theme_floating_bottom_bar">Floating Bottom Bar</string>
+    <string name="settings_theme_floating_bottom_bar_summary">Use a floating bottom navigation bar on phones</string>
+    <string name="settings_theme_floating_bottom_bar_style">Floating Bottom Bar Style</string>
+    <string name="settings_theme_floating_bottom_bar_style_miuix">Miuix</string>
+    <string name="settings_theme_floating_bottom_bar_style_ios_like">iOS-like</string>
+    <string name="settings_theme_bottom_bar_mode">Bottom Bar Options</string>
+    <string name="settings_theme_bottom_bar_icon_and_text">Icon and Text</string>
+    <string name="settings_theme_bottom_bar_icon_only">Icon Only</string>
+    <string name="settings_theme_bottom_bar_blur">Bottom Bar Blur</string>
+    <string name="settings_theme_bottom_bar_blur_summary">Use blur effects behind the bottom navigation bar</string>
     <string name="settings_theme_palette_style">Color Style</string>
     <string name="settings_theme_palette_tonal_spot">Tonal Spot (TonalSpot)</string>
     <string name="settings_theme_palette_neutral">Neutral (Neutral)</string>

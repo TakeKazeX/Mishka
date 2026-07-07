@@ -37,8 +37,8 @@ fun rememberBlurEnabled(): State<Boolean> =
     rememberUpdatedState(LocalBlurEnabled.current && isRuntimeShaderSupported())
 
 @Composable
-fun rememberBlurBackdrop(): LayerBackdrop? {
-    if (!rememberBlurEnabled().value || !isRuntimeShaderSupported()) return null
+fun rememberBlurBackdrop(enabled: Boolean = LocalBlurEnabled.current): LayerBackdrop? {
+    if (!enabled || !isRuntimeShaderSupported()) return null
     val surfaceColor = MiuixTheme.colorScheme.surface
     return rememberLayerBackdrop {
         drawRect(surfaceColor)

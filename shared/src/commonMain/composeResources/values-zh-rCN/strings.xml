@@ -241,6 +241,16 @@
     <string name="settings_theme_monet_summary">可用时使用系统动态取色</string>
     <string name="settings_theme_blur">模糊效果</string>
     <string name="settings_theme_blur_summary">为栏和层叠表面使用模糊效果</string>
+    <string name="settings_theme_floating_bottom_bar">悬浮底栏</string>
+    <string name="settings_theme_floating_bottom_bar_summary">在手机布局中使用悬浮底部导航栏</string>
+    <string name="settings_theme_floating_bottom_bar_style">悬浮底栏样式</string>
+    <string name="settings_theme_floating_bottom_bar_style_miuix">Miuix</string>
+    <string name="settings_theme_floating_bottom_bar_style_ios_like">iOS-like</string>
+    <string name="settings_theme_bottom_bar_mode">底栏选项</string>
+    <string name="settings_theme_bottom_bar_icon_and_text">图标与文字</string>
+    <string name="settings_theme_bottom_bar_icon_only">仅图标</string>
+    <string name="settings_theme_bottom_bar_blur">底栏模糊效果</string>
+    <string name="settings_theme_bottom_bar_blur_summary">为底部导航栏背后使用模糊效果</string>
     <string name="settings_theme_palette_style">色彩风格</string>
     <string name="settings_theme_palette_tonal_spot">色调点（TonalSpot）</string>
     <string name="settings_theme_palette_neutral">中性（Neutral）</string>
