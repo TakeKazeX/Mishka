@@ -118,7 +118,10 @@ fun HomeScreen(
                     state = uiState,
                     memory = memory,
                     systemInfo = systemInfo,
-                    onSubscriptionClick = { showSubscriptionTraffic = true },
+                    onSubscriptionClick = {
+                        showSubscriptionTraffic = true
+                        viewModel?.refreshProviderTraffic()
+                    },
                 )
             }
         }
@@ -127,6 +130,9 @@ fun HomeScreen(
     SubscriptionTrafficDialog(
         show = showSubscriptionTraffic,
         providers = uiState.providerTraffic,
+        isLoading = uiState.isProviderTrafficLoading,
+        loadFailed = uiState.providerTrafficLoadFailed,
+        onRefresh = { viewModel?.refreshProviderTraffic() },
         onDismiss = { showSubscriptionTraffic = false },
     )
 }

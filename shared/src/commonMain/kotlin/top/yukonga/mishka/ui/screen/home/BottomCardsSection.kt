@@ -35,12 +35,16 @@ import kotlinx.datetime.number
 import kotlinx.datetime.toLocalDateTime
 import mishka.shared.generated.resources.Res
 import mishka.shared.generated.resources.common_close
+import mishka.shared.generated.resources.common_processing
+import mishka.shared.generated.resources.common_refresh
 import mishka.shared.generated.resources.home_expire
 import mishka.shared.generated.resources.home_no_expire
+import mishka.shared.generated.resources.home_expire_unknown
 import mishka.shared.generated.resources.home_remaining
 import mishka.shared.generated.resources.home_subscription
 import mishka.shared.generated.resources.home_subscription_no_provider_traffic
 import mishka.shared.generated.resources.home_subscription_provider_traffic
+import mishka.shared.generated.resources.home_subscription_provider_traffic_load_failed
 import mishka.shared.generated.resources.home_system
 import mishka.shared.generated.resources.home_total
 import mishka.shared.generated.resources.home_used
@@ -52,11 +56,13 @@ import top.yukonga.mishka.viewmodel.ProviderTrafficInfo
 import top.yukonga.mishka.viewmodel.SystemInfoSnapshot
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
+import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Close
+import top.yukonga.miuix.kmp.icon.extended.Refresh
 import top.yukonga.miuix.kmp.squircle.squircleBackground
 import top.yukonga.miuix.kmp.theme.LocalDismissState
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -151,6 +157,9 @@ fun LazyListScope.bottomCardsSection(
 internal fun SubscriptionTrafficDialog(
     show: Boolean,
     providers: List<ProviderTrafficInfo>,
+    isLoading: Boolean,
+    loadFailed: Boolean,
+    onRefresh: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     WindowBottomSheet(
@@ -159,12 +168,25 @@ internal fun SubscriptionTrafficDialog(
         onDismissRequest = onDismiss,
         endAction = {
             val dismiss = LocalDismissState.current
-            IconButton(onClick = { dismiss?.invoke() }) {
-                Icon(
-                    imageVector = MiuixIcons.Close,
-                    contentDescription = stringResource(Res.string.common_close),
-                    tint = MiuixTheme.colorScheme.onBackground,
-                )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onRefresh, enabled = !isLoading) {
+                    if (isLoading) {
+                        CircularProgressIndicator(size = 18.dp, strokeWidth = 2.dp)
+                    } else {
+                        Icon(
+                            imageVector = MiuixIcons.Refresh,
+                            contentDescription = stringResource(Res.string.common_refresh),
+                            tint = MiuixTheme.colorScheme.onBackground,
+                        )
+                    }
+                }
+                IconButton(onClick = { dismiss?.invoke() }) {
+                    Icon(
+                        imageVector = MiuixIcons.Close,
+                        contentDescription = stringResource(Res.string.common_close),
+                        tint = MiuixTheme.colorScheme.onBackground,
+                    )
+                }
             }
         },
     ) {
@@ -172,27 +194,74 @@ internal fun SubscriptionTrafficDialog(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 280.dp),
+            contentAlignment = Alignment.Center,
         ) {
-            if (providers.isEmpty()) {
-                Text(
-                    text = stringResource(Res.string.home_subscription_no_provider_traffic),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 28.dp),
-                    fontSize = 14.sp,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                )
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentPadding = PaddingValues(bottom = 56.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    items(
-                        items = providers,
-                        key = { it.id },
-                    ) { provider ->
-                        ProviderTrafficCard(provider)
+            when {
+                providers.isEmpty() && isLoading -> {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        CircularProgressIndicator()
+                        Text(
+                            text = stringResource(Res.string.common_processing),
+                            fontSize = 14.sp,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        )
+                    }
+                }
+
+                providers.isEmpty() && loadFailed -> {
+                    Text(
+                        text = stringResource(Res.string.home_subscription_provider_traffic_load_failed),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp),
+                        textAlign = TextAlign.Center,
+                        fontSize = 14.sp,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    )
+                }
+
+                providers.isEmpty() -> {
+                    Text(
+                        text = stringResource(Res.string.home_subscription_no_provider_traffic),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp),
+                        textAlign = TextAlign.Center,
+                        fontSize = 14.sp,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    )
+                }
+
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(bottom = 56.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        if (isLoading) {
+                            item(key = "provider_traffic_loading") {
+                                ProviderTrafficStatus(
+                                    text = stringResource(Res.string.common_processing),
+                                    isLoading = true,
+                                )
+                            }
+                        } else if (loadFailed) {
+                            item(key = "provider_traffic_load_failed") {
+                                ProviderTrafficStatus(
+                                    text = stringResource(Res.string.home_subscription_provider_traffic_load_failed),
+                                    isLoading = false,
+                                )
+                            }
+                        }
+                        items(
+                            items = providers,
+                            key = { it.id },
+                        ) { provider ->
+                            ProviderTrafficCard(provider)
+                        }
                     }
                 }
             }
@@ -201,15 +270,44 @@ internal fun SubscriptionTrafficDialog(
 }
 
 @Composable
+private fun ProviderTrafficStatus(
+    text: String,
+    isLoading: Boolean,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (isLoading) {
+            CircularProgressIndicator(size = 16.dp, strokeWidth = 2.dp)
+            Spacer(Modifier.width(8.dp))
+        }
+        Text(
+            text = text,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            fontSize = 12.sp,
+            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+        )
+    }
+}
+
+@Composable
 private fun ProviderTrafficCard(provider: ProviderTrafficInfo) {
-    val used = provider.upload + provider.download
-    val remaining = (provider.total - used).coerceAtLeast(0)
-    val progress = if (provider.total > 0) {
-        (used.toFloat() / provider.total.toFloat()).coerceIn(0f, 1f)
+    val upload = provider.upload.coerceAtLeast(0)
+    val download = provider.download.coerceAtLeast(0)
+    val total = provider.total.coerceAtLeast(0)
+    val used = if (Long.MAX_VALUE - upload < download) Long.MAX_VALUE else upload + download
+    val remaining = (total - used).coerceAtLeast(0)
+    val progress = if (total > 0) {
+        (used.toFloat() / total.toFloat()).coerceIn(0f, 1f)
     } else {
         0f
     }
-    val percent = if (provider.total > 0) "${(progress * 100).roundToInt()}%" else "--"
+    val percent = if (total > 0) "${(progress * 100).roundToInt()}%" else "--"
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -239,7 +337,7 @@ private fun ProviderTrafficCard(provider: ProviderTrafficInfo) {
             progress = progress,
             used = FormatUtils.formatBytes(used),
             remaining = FormatUtils.formatBytes(remaining),
-            total = FormatUtils.formatBytes(provider.total),
+            total = FormatUtils.formatBytes(total),
             expire = formatExpire(provider.expire),
         )
     }
@@ -416,9 +514,12 @@ private fun TrafficProgressBar(progress: Float) {
 @Composable
 private fun formatExpire(expire: Long): String {
     if (expire <= 0) return stringResource(Res.string.home_no_expire)
-    return Instant.fromEpochSeconds(expire)
-        .toLocalDateTime(TimeZone.currentSystemDefault())
-        .formatDateTime()
+    val formatted = runCatching {
+        Instant.fromEpochSeconds(expire)
+            .toLocalDateTime(TimeZone.currentSystemDefault())
+            .formatDateTime()
+    }.getOrNull()
+    return formatted ?: stringResource(Res.string.home_expire_unknown)
 }
 
 private fun LocalDateTime.formatDateTime(): String = buildString {

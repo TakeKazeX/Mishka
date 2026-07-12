@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import top.yukonga.mishka.data.api.MihomoConnectionManager
 import top.yukonga.mishka.data.model.MihomoConfig
@@ -39,6 +40,8 @@ data class HomeUiState(
     val config: MihomoConfig? = null,
     val subscription: SubscriptionInfo? = null,
     val providerTraffic: List<ProviderTrafficInfo> = emptyList(),
+    val isProviderTrafficLoading: Boolean = false,
+    val providerTrafficLoadFailed: Boolean = false,
     val latencyBaidu: Int = -1,
     val latencyCloudflare: Int = -1,
     val latencyGoogle: Int = -1,
@@ -112,6 +115,10 @@ class HomeViewModel(
     private var memoryJob: Job? = null
     private var systemInfoJob: Job? = null
     private var runtimeConfigJob: Job? = null
+    private var initialLoadJob: Job? = null
+    private var providerTrafficJob: Job? = null
+    private var providerTrafficRequestId = 0L
+    private var repositorySubscriptionId: String? = null
     private var startTime: Long = 0
     private var uptimeJob: Job? = null
     private var mihomoPid: Int = -1
@@ -186,44 +193,116 @@ class HomeViewModel(
                 if (_uiState.value.isRunning || _uiState.value.isStarting) {
                     _uiState.value = _uiState.value.copy(subscription = activeSubscriptionInfo())
                 }
+                if (repository != null && getActiveSubscriptionId() != repositorySubscriptionId) {
+                    clearProviderTraffic()
+                }
             }
         }
     }
 
     private fun connectToMihomo() {
-        // 立即用 DB 缓存填充流量栏；loadConfig 拿到 mihomo providers 后会通过 Repository
-        // emit 触发 activeSubscription collect 自动覆盖为聚合后的实时数据
+        val repo = repository ?: return
+        val subscriptionId = getActiveSubscriptionId()
+        repositorySubscriptionId = subscriptionId
+        // 立即用 DB 缓存填充流量栏；provider 流量随后由独立请求覆盖。
         _uiState.value = _uiState.value.copy(subscription = activeSubscriptionInfo())
         startTrafficCollection()
         startMemoryCollection()
         startSystemInfoCollection()
         startRuntimeConfigRefresh()
         startUptimeCounter()
-        viewModelScope.launch {
-            loadConfig()
-            loadProxyGroups()
-            testLatency()
+        initialLoadJob?.cancel()
+        initialLoadJob = viewModelScope.launch {
+            loadConfig(repo)
+            if (repository !== repo) return@launch
+            loadProxyGroups(repo)
+            if (repository === repo) testLatency()
+        }
+        refreshProviderTraffic(repo, subscriptionId)
+    }
+
+    private suspend fun loadConfig(repo: MihomoRepository) {
+        repo.getConfig().onSuccess { config ->
+            if (repository !== repo) return@onSuccess
+            _uiState.update {
+                it.copy(
+                    isRunning = true,
+                    mode = config.mode,
+                    tunStack = config.tun?.stack ?: "",
+                    ipv6 = config.ipv6,
+                    config = config,
+                )
+            }
+        }
+        repo.getVersion().onSuccess { version ->
+            if (repository !== repo) return@onSuccess
+            _uiState.update { it.copy(version = version.version) }
         }
     }
 
-    private suspend fun loadConfig() {
-        repository?.getConfig()?.onSuccess { config ->
-            _uiState.value = _uiState.value.copy(
-                isRunning = true,
-                mode = config.mode,
-                tunStack = config.tun?.stack ?: "",
-                ipv6 = config.ipv6,
-                config = config,
+    /**
+     * Provider 流量既用于主页汇总，也供底部弹窗逐项展示。每次连接和打开弹窗时刷新；
+     * 请求 token 与 repository identity 双重校验，避免旧订阅的 HTTP 响应覆盖新订阅。
+     */
+    fun refreshProviderTraffic() {
+        val repo = repository ?: return
+        val subscriptionId = repositorySubscriptionId
+        if (getActiveSubscriptionId() != subscriptionId) return
+        refreshProviderTraffic(repo, subscriptionId)
+    }
+
+    private fun refreshProviderTraffic(repo: MihomoRepository, subscriptionId: String?) {
+        providerTrafficJob?.cancel()
+        val requestId = ++providerTrafficRequestId
+        _uiState.update { state ->
+            if (!isCurrentProviderTrafficRequest(repo, subscriptionId, requestId)) state else state.copy(
+                isProviderTrafficLoading = true,
+                providerTrafficLoadFailed = false,
             )
         }
-        repository?.getVersion()?.onSuccess { version ->
-            _uiState.value = _uiState.value.copy(version = version.version)
+        providerTrafficJob = viewModelScope.launch {
+            val result = repo.getProviders()
+            if (!isCurrentProviderTrafficRequest(repo, subscriptionId, requestId)) return@launch
+            result.onSuccess { providers ->
+                _uiState.update { state ->
+                    if (!isCurrentProviderTrafficRequest(repo, subscriptionId, requestId)) state else state.copy(
+                        providerTraffic = providerTrafficInfo(providers),
+                        isProviderTrafficLoading = false,
+                        providerTrafficLoadFailed = false,
+                    )
+                }
+                if (isCurrentProviderTrafficRequest(repo, subscriptionId, requestId)) {
+                    onLiveProviderInfo(subscriptionId, aggregateProviderInfo(providers))
+                }
+            }.onFailure {
+                _uiState.update { state ->
+                    if (!isCurrentProviderTrafficRequest(repo, subscriptionId, requestId)) state else state.copy(
+                        isProviderTrafficLoading = false,
+                        providerTrafficLoadFailed = true,
+                    )
+                }
+            }
         }
-        // 把聚合后的 provider info 推回 Repository，由 Repository 合并到 active Subscription
-        // 视图模型。订阅页和主页都从 SubscriptionRepository.subscriptions 读，自动一致。
-        repository?.getProviders()?.onSuccess { providers ->
-            _uiState.value = _uiState.value.copy(providerTraffic = providerTrafficInfo(providers))
-            onLiveProviderInfo(getActiveSubscriptionId(), aggregateProviderInfo(providers))
+    }
+
+    private fun isCurrentProviderTrafficRequest(
+        repo: MihomoRepository,
+        subscriptionId: String?,
+        requestId: Long,
+    ): Boolean = repository === repo &&
+        repositorySubscriptionId == subscriptionId &&
+        getActiveSubscriptionId() == subscriptionId &&
+        providerTrafficRequestId == requestId
+
+    private fun clearProviderTraffic() {
+        providerTrafficJob?.cancel()
+        providerTrafficRequestId++
+        _uiState.update {
+            it.copy(
+                providerTraffic = emptyList(),
+                isProviderTrafficLoading = false,
+                providerTrafficLoadFailed = false,
+            )
         }
     }
 
@@ -418,8 +497,9 @@ class HomeViewModel(
         serviceController.restart(getActiveSubscriptionId())
     }
 
-    private suspend fun loadProxyGroups() {
-        repository?.getGroups()?.onSuccess { response ->
+    private suspend fun loadProxyGroups(repo: MihomoRepository) {
+        repo.getGroups().onSuccess { response ->
+            if (repository !== repo) return@onSuccess
             // 从 GLOBAL 组的 all 字段获取配置文件中的原始顺序
             val globalGroup = response.proxies.firstOrNull { it.name == "GLOBAL" }
             val orderMap = globalGroup?.all
@@ -439,10 +519,12 @@ class HomeViewModel(
                 ?: sortedProxies.firstOrNull { it.type.equals("Selector", true) }?.name
                 ?: sortedProxies.firstOrNull { it.type.equals("URLTest", true) }?.name
                 ?: "GLOBAL"
-            _uiState.value = _uiState.value.copy(
-                proxyGroups = groupNames,
-                selectedProxyGroup = defaultGroup,
-            )
+            _uiState.update {
+                it.copy(
+                    proxyGroups = groupNames,
+                    selectedProxyGroup = defaultGroup,
+                )
+            }
         }
     }
 
@@ -494,6 +576,9 @@ class HomeViewModel(
      * 当 repository StateFlow 切回 null 时由收集回调调用。
      */
     private fun disconnectStreams() {
+        initialLoadJob?.cancel()
+        clearProviderTraffic()
+        repositorySubscriptionId = null
         trafficJob?.cancel()
         memoryJob?.cancel()
         systemInfoJob?.cancel()
