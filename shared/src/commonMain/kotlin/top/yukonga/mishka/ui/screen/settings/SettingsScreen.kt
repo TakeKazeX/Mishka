@@ -32,15 +32,6 @@ import mishka.shared.generated.resources.settings_file_manager_summary
 import mishka.shared.generated.resources.settings_general
 import mishka.shared.generated.resources.settings_hide_task_card
 import mishka.shared.generated.resources.settings_hide_task_card_summary
-import mishka.shared.generated.resources.settings_theme_accent_blue
-import mishka.shared.generated.resources.settings_theme_accent_default
-import mishka.shared.generated.resources.settings_theme_accent_green
-import mishka.shared.generated.resources.settings_theme_accent_orange
-import mishka.shared.generated.resources.settings_theme_accent_pink
-import mishka.shared.generated.resources.settings_theme_accent_purple
-import mishka.shared.generated.resources.settings_theme_accent_red
-import mishka.shared.generated.resources.settings_theme_accent_teal
-import mishka.shared.generated.resources.settings_theme_accent_yellow
 import mishka.shared.generated.resources.settings_meta_settings
 import mishka.shared.generated.resources.settings_meta_summary
 import mishka.shared.generated.resources.settings_network
@@ -48,12 +39,7 @@ import mishka.shared.generated.resources.settings_override_settings
 import mishka.shared.generated.resources.settings_override_summary
 import mishka.shared.generated.resources.settings_subscription_via_proxy
 import mishka.shared.generated.resources.settings_subscription_via_proxy_summary
-import mishka.shared.generated.resources.settings_theme_dark
-import mishka.shared.generated.resources.settings_theme_light
-import mishka.shared.generated.resources.settings_theme_summary_accent
-import mishka.shared.generated.resources.settings_theme_summary_miuix_blue
-import mishka.shared.generated.resources.settings_theme_summary_monet
-import mishka.shared.generated.resources.settings_theme_system
+import mishka.shared.generated.resources.settings_theme_summary
 import mishka.shared.generated.resources.settings_theme_title
 import mishka.shared.generated.resources.settings_title
 import mishka.shared.generated.resources.settings_tun_mode
@@ -77,8 +63,6 @@ import top.yukonga.mishka.ui.component.CardItem
 import top.yukonga.mishka.ui.component.blur.BlurredBar
 import top.yukonga.mishka.ui.component.blur.rememberBlurBackdrop
 import top.yukonga.mishka.ui.component.groupedCardItems
-import top.yukonga.mishka.ui.theme.ThemeAccentColor
-import top.yukonga.mishka.ui.theme.ThemeConfig
 import top.yukonga.mishka.ui.util.WideContentBox
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
@@ -106,7 +90,6 @@ fun SettingsScreen(
     onNavigateFileManager: () -> Unit = {},
     onNavigateAbout: () -> Unit = {},
     bootStartManager: BootStartManager? = null,
-    themeConfig: ThemeConfig = ThemeConfig(),
     storage: PlatformStorage? = null,
     onHideTaskCardChange: ((Boolean) -> Unit)? = null,
     hasRootPermission: Boolean = false,
@@ -135,36 +118,6 @@ fun SettingsScreen(
         )
     }
 
-    val themeSystemStr = stringResource(Res.string.settings_theme_system)
-    val themeLightStr = stringResource(Res.string.settings_theme_light)
-    val themeDarkStr = stringResource(Res.string.settings_theme_dark)
-    val themeModeSummary = when (themeConfig.colorMode) {
-        1 -> themeLightStr
-        2 -> themeDarkStr
-        else -> themeSystemStr
-    }
-    val themeColorSummary = if (!themeConfig.useMonet) {
-        stringResource(Res.string.settings_theme_summary_miuix_blue)
-    } else if (themeConfig.accentColor == ThemeAccentColor.Default) {
-        stringResource(Res.string.settings_theme_summary_monet)
-    } else {
-        stringResource(
-            Res.string.settings_theme_summary_accent,
-            stringResource(
-                when (themeConfig.accentColor) {
-                    ThemeAccentColor.Default -> Res.string.settings_theme_accent_default
-                    ThemeAccentColor.Blue -> Res.string.settings_theme_accent_blue
-                    ThemeAccentColor.Purple -> Res.string.settings_theme_accent_purple
-                    ThemeAccentColor.Pink -> Res.string.settings_theme_accent_pink
-                    ThemeAccentColor.Red -> Res.string.settings_theme_accent_red
-                    ThemeAccentColor.Orange -> Res.string.settings_theme_accent_orange
-                    ThemeAccentColor.Yellow -> Res.string.settings_theme_accent_yellow
-                    ThemeAccentColor.Green -> Res.string.settings_theme_accent_green
-                    ThemeAccentColor.Teal -> Res.string.settings_theme_accent_teal
-                },
-            ),
-        )
-    }
     val tunModeItems = listOf(
         stringResource(Res.string.settings_tun_mode_vpn),
         stringResource(Res.string.settings_tun_mode_root_tun),
@@ -359,7 +312,7 @@ fun SettingsScreen(
                         add(CardItem("theme") {
                             ArrowPreference(
                                 title = stringResource(Res.string.settings_theme_title),
-                                summary = "$themeModeSummary / $themeColorSummary",
+                                summary = stringResource(Res.string.settings_theme_summary),
                                 onClick = onNavigateThemeSettings,
                             )
                         })

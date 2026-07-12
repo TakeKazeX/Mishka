@@ -120,10 +120,13 @@ class ProviderViewModel : ViewModel() {
             // repo 已被切换则丢弃 in-flight 响应，避免覆盖新订阅的 provider 列表
             if (repository !== repo) return@launch
             // 代理 provider 排在规则 provider 前面；各自组内按 name 升序
-            _uiState.update {
-                it.copy(
+            val liveKeys = items.map { ProviderErrorKey(it.name, it.isRuleProvider) }.toSet()
+            _uiState.update { state ->
+                state.copy(
                     providers = items.sortedWith(compareBy({ it.isRuleProvider }, { it.name })).toPersistentList(),
                     isLoading = false,
+                    // 修剪已从列表消失的 provider 的错误键，防止无对应行的错误永久滞留
+                    providerErrors = state.providerErrors.filterKeys { it in liveKeys }.toPersistentMap(),
                 )
             }
         }

@@ -44,6 +44,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.State
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Alignment.Companion.CenterHorizontally
@@ -93,11 +94,11 @@ import top.yukonga.miuix.kmp.utils.Platform
 import top.yukonga.miuix.kmp.utils.platform
 import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sign
 import kotlin.math.sin
-import kotlin.math.sqrt
 
 private val LocalIosTabScale = staticCompositionLocalOf { { 1f } }
 
@@ -121,46 +122,62 @@ private val iosIndicatorSpecular: Highlight = Highlight(
     ),
 )
 
-// Mirrors HighlightStyle.kt's LIGHT_REF — keep in sync.
+// 与 HighlightStyle.kt 的 LIGHT_REF 保持同步。
 private const val LIGHT_REF_X = 0.5f
 private const val LIGHT_REF_Y = 0.7f
-private const val GRAVITY_DIR_THRESHOLD_SQ = 0.01f // |g_xy| > 0.1, ≈ 6° tilt
+private const val GRAVITY_DIR_THRESHOLD_SQ = 0.01f // |g_xy| > 0.1，约 6° 倾斜
 
-/** Tracks gravity for a `dualPeak` highlight's primary light, with an extra UV-clockwise offset on top. */
+// 重力方向角量化步进（3°）：小于一个步进的方向变化肉眼不可辨，不值得一次重绘。
+private val GRAVITY_ANGLE_STEP_RAD = (3.0 * PI / 180.0).toFloat()
+
+/**
+ * 返回屏幕平面内重力方向角（弧度，已量化到 3° 步进）的 [State]。
+ *
+ * 刻意只返回 State 而不在组合期读值：传感器以约 50Hz 无节流写入 tilt 快照状态，
+ * 若在组合期读取，失效会上浮到整个调用方作用域造成每 tick 重组。消费方应把
+ * `State.value` 的读取下沉到 drawBackdrop 的 highlight lambda 内（绘制阶段求值），
+ * 让传感器更新只触发 draw 失效；derivedStateOf 的结构相等去重再把 draw 失效频率
+ * 从传感器速率降到方向真正跨过量化步进时。
+ */
 @Composable
-private fun rememberGravityRotatedHighlight(
+private fun rememberQuantizedGravityAngle(): State<Float> {
+    val tiltState = rememberDeviceTilt()
+    return remember(tiltState) {
+        derivedStateOf {
+            val tilt = tiltState.value
+            val gx = tilt.gravityX
+            val gy = tilt.gravityY
+            val gMagSq = gx * gx + gy * gy
+            if (gMagSq > GRAVITY_DIR_THRESHOLD_SQ) {
+                (atan2(gy, gx) / GRAVITY_ANGLE_STEP_RAD).roundToInt() * GRAVITY_ANGLE_STEP_RAD
+            } else {
+                // 近水平放置时屏幕平面内的重力分量方向不稳定，固定指向 (0, -1)
+                (-PI / 2).toFloat()
+            }
+        }
+    }
+}
+
+/** 由量化后的重力方向角计算 `dualPeak` 高光的主光源位置，并在其上叠加 [extraDegrees] 的额外旋转。 */
+private fun gravityRotatedHighlight(
     base: Highlight,
-    extraDegrees: Float = 0f,
+    gravityAngleRad: Float,
+    extraDegrees: Float,
 ): Highlight {
     val baseStyle = base.style as BloomStroke
-    val tilt by rememberDeviceTilt()
-    val rotatedPrimary = remember(tilt, baseStyle.primaryLight, extraDegrees) {
-        val basePrimary = baseStyle.primaryLight
-        val gx = tilt.gravityX
-        val gy = tilt.gravityY
-        val gMagSq = gx * gx + gy * gy
-        val (lx0, ly0) = if (gMagSq > GRAVITY_DIR_THRESHOLD_SQ) {
-            val invMag = 1f / sqrt(gMagSq)
-            (gx * invMag) to (gy * invMag)
-        } else {
-            0f to -1f
-        }
-        val rad = extraDegrees * PI / 180.0
-        val c = cos(rad).toFloat()
-        val s = sin(rad).toFloat()
-        val lx = c * lx0 - s * ly0
-        val ly = s * lx0 + c * ly0
-        basePrimary.copy(
-            position = LightPosition(
-                x = LIGHT_REF_X + lx,
-                y = LIGHT_REF_Y + ly,
-                z = basePrimary.position.z,
+    val basePrimary = baseStyle.primaryLight
+    val rad = gravityAngleRad + (extraDegrees * PI / 180.0).toFloat()
+    return base.copy(
+        style = baseStyle.copy(
+            primaryLight = basePrimary.copy(
+                position = LightPosition(
+                    x = LIGHT_REF_X + cos(rad),
+                    y = LIGHT_REF_Y + sin(rad),
+                    z = basePrimary.position.z,
+                ),
             ),
-        )
-    }
-    return remember(base, rotatedPrimary) {
-        base.copy(style = baseStyle.copy(primaryLight = rotatedPrimary))
-    }
+        ),
+    )
 }
 
 @Composable
@@ -269,7 +286,10 @@ internal fun IosLiquidGlassNavigationBar(
         }
     }
 
-    val interactiveHighlight = remember(animationScope, isLtr) {
+    // dampedDrag 必须在 remember 键里：density 变化（如 DPI 缩放调整）会重建 dampedDrag，
+    // 若本实例存活，position lambda 捕获的仍是旧 dampedDrag（其 value 已冻结）与旧 panelOffset
+    // 委托，按压高亮不再跟手；以 dampedDrag 身份为键重建可同时刷新这两处捕获。
+    val interactiveHighlight = remember(animationScope, isLtr, dampedDrag) {
         InteractiveHighlight(
             animationScope = animationScope,
             position = { layerSize, _ ->
@@ -285,8 +305,9 @@ internal fun IosLiquidGlassNavigationBar(
         )
     }
 
-    val baseHighlight = rememberGravityRotatedHighlight(iosIndicatorSpecular, extraDegrees = -45f)
-    val pillHighlight = rememberGravityRotatedHighlight(iosIndicatorSpecular, extraDegrees = 90f)
+    // 只持有 State，不在组合期读值；在下方 highlight lambda（绘制阶段）内消费，
+    // 使传感器更新只触发 draw 失效而非整个导航栏作用域的重组。
+    val gravityAngle = rememberQuantizedGravityAngle()
 
     val combinedBackdrop = backdrop?.let { rememberCombinedBackdrop(it, tabsBackdrop) }
 
@@ -329,7 +350,7 @@ internal fun IosLiquidGlassNavigationBar(
                     Icon(
                         modifier = Modifier.size(if (showLabels) 22.dp else 24.dp),
                         imageVector = item.icon,
-                        // Decorative: the adjacent label names the item; avoids TalkBack double-read.
+                        // 显示 label 时图标为纯装饰（相邻 label 已描述该项），置 null 避免 TalkBack 重复朗读。
                         contentDescription = if (showLabels) null else item.label,
                     )
                 }
@@ -376,7 +397,7 @@ internal fun IosLiquidGlassNavigationBar(
                                 shadow = Shadow(
                                     radius = 10.dp,
                                     color = Color.Black,
-                                    alpha = 0.2f,
+                                    alpha = if (isDark) 0.2f else 0.1f,
                                 ),
                             )
                             .then(
@@ -395,7 +416,10 @@ internal fun IosLiquidGlassNavigationBar(
                                                 refractionAmount = 24.dp.toPx(),
                                             )
                                         },
-                                        highlight = { baseHighlight.copy(alpha = 0.75f) },
+                                        highlight = {
+                                            gravityRotatedHighlight(iosIndicatorSpecular, gravityAngle.value, extraDegrees = -45f)
+                                                .copy(alpha = 0.75f)
+                                        },
                                         layerBlock = {
                                             val width = size.width.coerceAtLeast(1f)
                                             val s = lerp(1f, 1f + 16.dp.toPx() / width, dampedDrag.pressProgress)
@@ -474,7 +498,10 @@ internal fun IosLiquidGlassNavigationBar(
                                             chromaticAberration = 0.5f,
                                         )
                                     },
-                                    highlight = { pillHighlight.copy(alpha = dampedDrag.pressProgress) },
+                                    highlight = {
+                                        gravityRotatedHighlight(iosIndicatorSpecular, gravityAngle.value, extraDegrees = 90f)
+                                            .copy(alpha = dampedDrag.pressProgress)
+                                    },
                                     layerBlock = {
                                         scaleX = dampedDrag.scaleX
                                         scaleY = dampedDrag.scaleY

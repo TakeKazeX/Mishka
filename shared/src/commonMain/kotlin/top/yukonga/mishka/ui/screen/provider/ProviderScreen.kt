@@ -24,6 +24,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -88,6 +89,10 @@ fun ProviderScreen(
     var selectedTabIndex by rememberSaveable("provider_type_tab") { mutableIntStateOf(RULE_PROVIDERS_TAB) }
     val selectedIsRuleProvider = selectedTabIndex == RULE_PROVIDERS_TAB
     val visibleProviders = uiState.providers.filter { it.isRuleProvider == selectedIsRuleProvider }
+    // 非当前 Tab 的更新错误没有行内 banner 可见，聚合到列表顶部的汇总卡展示
+    val otherTabErrors = uiState.providerErrors.entries
+        .filter { it.key.isRuleProvider != selectedIsRuleProvider }
+        .sortedBy { it.key.name }
     val providerTabs = listOf(
         stringResource(Res.string.provider_rule_providers),
         stringResource(Res.string.provider_proxy_providers),
@@ -102,6 +107,29 @@ fun ProviderScreen(
                 .padding(horizontal = 12.dp)
                 .padding(bottom = 12.dp),
         )
+    }
+    val otherTabErrorsContent: @Composable () -> Unit = {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp)
+                .padding(bottom = 12.dp),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                otherTabErrors.forEach { (errorKey, message) ->
+                    Text(
+                        text = stringResource(Res.string.provider_update_failed, errorKey.name, message),
+                        fontSize = 12.sp,
+                        color = StatusColors.danger,
+                    )
+                }
+            }
+        }
     }
 
     val backdrop = rememberBlurBackdrop()
@@ -160,6 +188,9 @@ fun ProviderScreen(
                     ) {
                         Spacer(Modifier.height(12.dp))
                         providerTabsContent()
+                        if (otherTabErrors.isNotEmpty()) {
+                            otherTabErrorsContent()
+                        }
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -172,12 +203,16 @@ fun ProviderScreen(
                                     fontSize = 16.sp,
                                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                                 )
-                                Text(
-                                    text = stringResource(Res.string.provider_start_first),
-                                    modifier = Modifier.padding(top = 6.dp),
-                                    fontSize = 14.sp,
-                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                                )
+                                // 仅当两个 Tab 都没有 provider 时才提示启动服务；
+                                // 当前 Tab 为空但另一 Tab 有 provider 说明服务已在运行
+                                if (uiState.providers.isEmpty()) {
+                                    Text(
+                                        text = stringResource(Res.string.provider_start_first),
+                                        modifier = Modifier.padding(top = 6.dp),
+                                        fontSize = 14.sp,
+                                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                    )
+                                }
                             }
                         }
                     }
@@ -188,6 +223,11 @@ fun ProviderScreen(
                 }
                 item(key = "provider_type_tabs", contentType = "tabs") {
                     providerTabsContent()
+                }
+                if (otherTabErrors.isNotEmpty()) {
+                    item(key = "other_tab_errors", contentType = "error_summary") {
+                        otherTabErrorsContent()
+                    }
                 }
                 items(
                     items = visibleProviders,
@@ -211,8 +251,8 @@ fun ProviderScreen(
                         )
                     }
                 }
-                item { Spacer(Modifier.height(24.dp).navigationBarsPadding()) }
             }
+            item { Spacer(Modifier.height(24.dp).navigationBarsPadding()) }
         }
     }
 
@@ -261,13 +301,17 @@ private fun ProviderItem(
                 }
             },
         )
+        // 退出动画期间 error 已置 null，保留最后一条非空错误供动画帧渲染，
+        // 避免闪现空原因文案并触发 liveRegion 播报
+        var lastError by remember { mutableStateOf(error) }
+        if (error != null) lastError = error
         AnimatedVisibility(
             visible = error != null,
             enter = expandVertically() + fadeIn(),
             exit = shrinkVertically() + fadeOut(),
         ) {
             Text(
-                text = stringResource(Res.string.provider_update_failed, provider.name, error.orEmpty()),
+                text = stringResource(Res.string.provider_update_failed, provider.name, lastError.orEmpty()),
                 modifier = Modifier
                     .fillMaxWidth()
                     .semantics { liveRegion = LiveRegionMode.Polite }

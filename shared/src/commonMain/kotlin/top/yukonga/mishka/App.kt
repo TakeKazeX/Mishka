@@ -14,9 +14,11 @@ import top.yukonga.mishka.platform.WifiPolicyController
 import top.yukonga.mishka.ui.component.blur.LocalBlurEnabled
 import top.yukonga.mishka.ui.navigation.AppNavigation
 import top.yukonga.mishka.ui.theme.LocalAppDarkMode
+import top.yukonga.mishka.ui.theme.LocalAppMonetEnabled
 import top.yukonga.mishka.ui.theme.LocalPlatformDensity
 import top.yukonga.mishka.ui.theme.ThemeAccentColor
 import top.yukonga.mishka.ui.theme.ThemeConfig
+import top.yukonga.mishka.ui.theme.resolveIsDark
 import top.yukonga.mishka.viewmodel.AppProxyViewModel
 import top.yukonga.mishka.viewmodel.ConnectionViewModel
 import top.yukonga.mishka.viewmodel.DnsQueryViewModel
@@ -69,11 +71,7 @@ fun App(
         themeConfig.colorMode == 2 -> ColorSchemeMode.MonetDark
         else -> ColorSchemeMode.MonetSystem
     }
-    val isDark = when (themeConfig.colorMode) {
-        1 -> false
-        2 -> true
-        else -> isSystemInDarkTheme()
-    }
+    val isDark = themeConfig.resolveIsDark(isSystemInDarkTheme())
     val systemSeedColor = if (themeConfig.useMonet && themeConfig.accentColor == ThemeAccentColor.Default) {
         platformDynamicColors(isDark).primary
     } else {
@@ -114,6 +112,7 @@ fun App(
         }
         CompositionLocalProvider(
             LocalAppDarkMode provides isDark,
+            LocalAppMonetEnabled provides themeConfig.useMonet,
             LocalPlatformDensity provides currentDensity,
             LocalDensity provides appDensity,
             LocalBlurEnabled provides themeConfig.blurEnabled,

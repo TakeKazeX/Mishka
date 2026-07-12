@@ -45,6 +45,7 @@ import top.yukonga.mishka.service.AndroidProfileFileManager
 import top.yukonga.mishka.service.RootHelper
 import top.yukonga.mishka.ui.theme.ThemeConfig
 import top.yukonga.mishka.ui.theme.readThemeConfig
+import top.yukonga.mishka.ui.theme.resolveIsDark
 import top.yukonga.mishka.viewmodel.AppProxyViewModel
 import top.yukonga.mishka.viewmodel.ConnectionViewModel
 import top.yukonga.mishka.viewmodel.DnsQueryViewModel
@@ -297,9 +298,18 @@ class MainActivity : ComponentActivity() {
         if (hasFocus) latestThemeConfig?.let(::updateEdgeToEdge)
     }
 
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        // manifest configChanges=uiMode 吞掉了深浅色切换的重建，前台期间系统定时深色模式
+        // 翻转既无焦点变化也不触发 themeConfig SideEffect，只有这里能重新应用系统栏外观
+        latestThemeConfig?.let(::updateEdgeToEdge)
+    }
+
     private fun updateEdgeToEdge(themeConfig: ThemeConfig) {
         latestThemeConfig = themeConfig
-        val isDark = themeConfig.isDarkMode(resources.configuration)
+        val isDark = themeConfig.resolveIsDark(
+            (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES,
+        )
         val systemBarStyle = themeConfig.systemBarStyle()
         enableEdgeToEdge(
             statusBarStyle = systemBarStyle,
@@ -322,12 +332,6 @@ class MainActivity : ComponentActivity() {
                     Configuration.UI_MODE_NIGHT_YES
             },
         )
-    }
-
-    private fun ThemeConfig.isDarkMode(configuration: Configuration): Boolean = when (colorMode) {
-        1 -> false
-        2 -> true
-        else -> (configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
     }
 
     private fun enforceSystemBarsAppearance(isDark: Boolean) {

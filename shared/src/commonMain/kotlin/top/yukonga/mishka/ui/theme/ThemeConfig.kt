@@ -15,13 +15,19 @@ data class ThemeConfig(
     val floatingBottomBar: Boolean = false,
     val floatingBottomBarStyle: FloatingBottomBarStyle = FloatingBottomBarStyle.Miuix,
     val bottomBarMode: BottomBarMode = BottomBarMode.IconAndText,
-    val bottomBarBlurEnabled: Boolean = true,
     val densityScale: Float = DefaultDensityScale,
 )
 
 const val MinDensityScale = 0.8f
 const val MaxDensityScale = 1.1f
 const val DefaultDensityScale = 1f
+
+/** colorMode → 深色判定的唯一权威实现；systemDark 由调用方传入所在平台的系统深色状态 */
+fun ThemeConfig.resolveIsDark(systemDark: Boolean): Boolean = when (colorMode) {
+    1 -> false
+    2 -> true
+    else -> systemDark
+}
 
 fun normalizeDensityScale(value: Float): Float =
     if (value.isFinite()) value.coerceIn(MinDensityScale, MaxDensityScale) else DefaultDensityScale
@@ -95,7 +101,6 @@ fun readThemeConfig(storage: PlatformStorage): ThemeConfig {
         bottomBarMode = BottomBarMode.fromStorage(
             storage.getString(StorageKeys.THEME_BOTTOM_BAR_MODE, BottomBarMode.IconAndText.storageValue),
         ),
-        bottomBarBlurEnabled = storage.getString(StorageKeys.THEME_BOTTOM_BAR_BLUR, "true") != "false",
         densityScale = normalizeDensityScale(
             storage.getString(StorageKeys.THEME_DENSITY_SCALE, DefaultDensityScale.toString()).toFloatOrNull()
                 ?: DefaultDensityScale,
@@ -120,6 +125,5 @@ fun writeThemeConfig(storage: PlatformStorage, config: ThemeConfig) {
     storage.putString(StorageKeys.THEME_FLOATING_BOTTOM_BAR, config.floatingBottomBar.toString())
     storage.putString(StorageKeys.THEME_FLOATING_BOTTOM_BAR_STYLE, config.floatingBottomBarStyle.storageValue)
     storage.putString(StorageKeys.THEME_BOTTOM_BAR_MODE, config.bottomBarMode.storageValue)
-    storage.putString(StorageKeys.THEME_BOTTOM_BAR_BLUR, config.bottomBarBlurEnabled.toString())
     storage.putString(StorageKeys.THEME_DENSITY_SCALE, normalizeDensityScale(config.densityScale).toString())
 }

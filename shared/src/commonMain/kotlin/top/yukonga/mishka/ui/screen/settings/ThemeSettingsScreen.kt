@@ -14,12 +14,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.InputTransformation
 import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.maxLength
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
-import androidx.compose.foundation.clickable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -38,20 +40,7 @@ import mishka.shared.generated.resources.common_cancel
 import mishka.shared.generated.resources.common_confirm
 import mishka.shared.generated.resources.settings_predictive_back
 import mishka.shared.generated.resources.settings_predictive_back_summary
-import mishka.shared.generated.resources.settings_theme_accent_blue
-import mishka.shared.generated.resources.settings_theme_accent_default
-import mishka.shared.generated.resources.settings_theme_accent_green
-import mishka.shared.generated.resources.settings_theme_accent_orange
-import mishka.shared.generated.resources.settings_theme_accent_pink
-import mishka.shared.generated.resources.settings_theme_accent_purple
-import mishka.shared.generated.resources.settings_theme_accent_red
-import mishka.shared.generated.resources.settings_theme_accent_teal
 import mishka.shared.generated.resources.settings_theme_accent_title
-import mishka.shared.generated.resources.settings_theme_accent_yellow
-import mishka.shared.generated.resources.settings_theme_bottom_bar_blur
-import mishka.shared.generated.resources.settings_theme_bottom_bar_blur_summary
-import mishka.shared.generated.resources.settings_theme_bottom_bar_icon_and_text
-import mishka.shared.generated.resources.settings_theme_bottom_bar_icon_only
 import mishka.shared.generated.resources.settings_theme_bottom_bar_mode
 import mishka.shared.generated.resources.settings_theme_blur
 import mishka.shared.generated.resources.settings_theme_blur_summary
@@ -61,8 +50,6 @@ import mishka.shared.generated.resources.settings_theme_density_scale_range
 import mishka.shared.generated.resources.settings_theme_density_scale_summary
 import mishka.shared.generated.resources.settings_theme_floating_bottom_bar
 import mishka.shared.generated.resources.settings_theme_floating_bottom_bar_style
-import mishka.shared.generated.resources.settings_theme_floating_bottom_bar_style_ios_like
-import mishka.shared.generated.resources.settings_theme_floating_bottom_bar_style_miuix
 import mishka.shared.generated.resources.settings_theme_floating_bottom_bar_summary
 import mishka.shared.generated.resources.settings_theme_group_color
 import mishka.shared.generated.resources.settings_theme_group_interface
@@ -71,16 +58,7 @@ import mishka.shared.generated.resources.settings_theme_light
 import mishka.shared.generated.resources.settings_theme_mode
 import mishka.shared.generated.resources.settings_theme_monet
 import mishka.shared.generated.resources.settings_theme_monet_summary
-import mishka.shared.generated.resources.settings_theme_palette_expressive
-import mishka.shared.generated.resources.settings_theme_palette_content
-import mishka.shared.generated.resources.settings_theme_palette_fidelity
-import mishka.shared.generated.resources.settings_theme_palette_fruit_salad
-import mishka.shared.generated.resources.settings_theme_palette_monochrome
-import mishka.shared.generated.resources.settings_theme_palette_neutral
-import mishka.shared.generated.resources.settings_theme_palette_rainbow
 import mishka.shared.generated.resources.settings_theme_palette_style
-import mishka.shared.generated.resources.settings_theme_palette_tonal_spot
-import mishka.shared.generated.resources.settings_theme_palette_vibrant
 import mishka.shared.generated.resources.settings_theme_pure_black
 import mishka.shared.generated.resources.settings_theme_pure_black_summary
 import mishka.shared.generated.resources.settings_theme_system
@@ -100,16 +78,17 @@ import top.yukonga.mishka.ui.theme.MinDensityScale
 import top.yukonga.mishka.ui.theme.ThemeAccentColor
 import top.yukonga.mishka.ui.theme.ThemeConfig
 import top.yukonga.mishka.ui.theme.ThemePaletteStyles
+import top.yukonga.mishka.ui.theme.label
 import top.yukonga.mishka.ui.theme.normalizeDensityScale
 import top.yukonga.mishka.ui.theme.writeThemeConfig
 import top.yukonga.mishka.ui.util.horizontalCutoutPadding
-import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.Slider
+import top.yukonga.miuix.kmp.basic.SliderDefaults
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
@@ -118,10 +97,10 @@ import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
+import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.theme.ThemePaletteStyle
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 import top.yukonga.miuix.kmp.window.WindowDialog
@@ -153,9 +132,9 @@ fun ThemeSettingsScreen(
     }
 
     fun updateDensityScale(percent: Float) {
-        val nextPercent = percent.coerceIn(
-            MinDensityScale * 100f,
-            MaxDensityScale * 100f,
+        val nextPercent = percent.roundToInt().coerceIn(
+            (MinDensityScale * 100f).roundToInt(),
+            (MaxDensityScale * 100f).roundToInt(),
         )
         val nextScale = normalizeDensityScale(nextPercent / 100f)
         densityScaleDraft = nextScale * 100f
@@ -163,7 +142,7 @@ fun ThemeSettingsScreen(
     }
 
     fun openDensityScaleDialog() {
-        densityScaleTextState.setTextAndPlaceCursorAtEnd(formatDensityScaleInput(densityScaleDraft))
+        densityScaleTextState.setTextAndPlaceCursorAtEnd(densityScaleDraft.roundToInt().toString())
         showDensityScaleDialog = true
     }
 
@@ -221,6 +200,7 @@ fun ThemeSettingsScreen(
                 .nestedScroll(scrollBehavior.nestedScrollConnection),
             contentPadding = PaddingValues(top = innerPadding.calculateTopPadding()),
         ) {
+            item { Spacer(Modifier.height(12.dp)) }
             item { SmallTitle(text = stringResource(Res.string.settings_theme_group_color)) }
             groupedCardItems(
                 keyPrefix = "theme_color",
@@ -313,23 +293,39 @@ fun ThemeSettingsScreen(
                         })
                     }
                     add(CardItem("densityScale") {
-                        DensityScalePreference(
+                        ArrowPreference(
                             title = stringResource(Res.string.settings_theme_density_scale),
                             summary = stringResource(Res.string.settings_theme_density_scale_summary),
-                            value = densityScaleDraft.coerceIn(
-                                MinDensityScale * 100f,
-                                MaxDensityScale * 100f,
-                            ),
-                            valueText = formatDensityScalePercent(densityScaleDraft),
-                            valueRange = (MinDensityScale * 100f)..(MaxDensityScale * 100f),
-                            keyPoints = listOf(80f, 90f, 100f, 110f),
+                            endActions = {
+                                Text(
+                                    text = formatDensityScalePercent(densityScaleDraft),
+                                    fontSize = MiuixTheme.textStyles.body2.fontSize,
+                                    color = MiuixTheme.colorScheme.onSurfaceVariantActions,
+                                )
+                            },
+                            bottomAction = {
+                                Slider(
+                                    value = densityScaleDraft.coerceIn(
+                                        MinDensityScale * 100f,
+                                        MaxDensityScale * 100f,
+                                    ),
+                                    onValueChange = { value ->
+                                        densityScaleDraft = value
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    valueRange = (MinDensityScale * 100f)..(MaxDensityScale * 100f),
+                                    onValueChangeFinished = {
+                                        updateDensityScale(densityScaleDraft)
+                                    },
+                                    showKeyPoints = true,
+                                    keyPoints = listOf(80f, 90f, 100f, 110f),
+                                    // magnetThreshold 是 range 占比：0.01 = 1%，仅在关键点附近轻微吸附
+                                    magnetThreshold = 0.01f,
+                                    hapticEffect = SliderDefaults.SliderHapticEffect.Step,
+                                )
+                            },
                             onClick = ::openDensityScaleDialog,
-                            onValueChange = { value ->
-                                densityScaleDraft = value
-                            },
-                            onValueChangeFinished = {
-                                updateDensityScale(densityScaleDraft)
-                            },
+                            holdDownState = showDensityScaleDialog,
                         )
                     })
                 },
@@ -387,17 +383,6 @@ fun ThemeSettingsScreen(
                             },
                         )
                     },
-                    CardItem("blur") {
-                        SwitchPreference(
-                            title = stringResource(Res.string.settings_theme_bottom_bar_blur),
-                            summary = stringResource(Res.string.settings_theme_bottom_bar_blur_summary),
-                            checked = themeConfig.bottomBarBlurEnabled && themeConfig.blurEnabled && isBlurSupported,
-                            onCheckedChange = { checked ->
-                                updateTheme(themeConfig.copy(bottomBarBlurEnabled = checked))
-                            },
-                            enabled = themeConfig.blurEnabled && isBlurSupported,
-                        )
-                    },
                 ),
             )
             item { Spacer(Modifier.height(24.dp).navigationBarsPadding()) }
@@ -408,6 +393,7 @@ fun ThemeSettingsScreen(
     DensityScaleDialog(
         show = showDensityScaleDialog,
         textState = densityScaleTextState,
+        currentPercent = { densityScaleDraft },
         onDismiss = { showDensityScaleDialog = false },
         onConfirm = { percent ->
             updateDensityScale(percent)
@@ -417,61 +403,10 @@ fun ThemeSettingsScreen(
 }
 
 @Composable
-private fun DensityScalePreference(
-    title: String,
-    summary: String,
-    value: Float,
-    valueText: String,
-    valueRange: ClosedFloatingPointRange<Float>,
-    keyPoints: List<Float>,
-    onClick: () -> Unit,
-    onValueChange: (Float) -> Unit,
-    onValueChangeFinished: () -> Unit,
-) {
-    BasicComponent(
-        bottomAction = {
-            Slider(
-                value = value,
-                onValueChange = onValueChange,
-                modifier = Modifier.fillMaxWidth(),
-                valueRange = valueRange,
-                onValueChangeFinished = onValueChangeFinished,
-                showKeyPoints = true,
-                keyPoints = keyPoints,
-            )
-        },
-        endActions = {
-            Text(
-                text = valueText,
-                modifier = Modifier.clickable(onClick = onClick),
-                fontSize = MiuixTheme.textStyles.body2.fontSize,
-                color = MiuixTheme.colorScheme.onSurfaceVariantActions,
-            )
-        },
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onClick),
-        ) {
-            Text(
-                text = title,
-                fontSize = MiuixTheme.textStyles.headline1.fontSize,
-                color = MiuixTheme.colorScheme.onBackground,
-            )
-            Text(
-                text = summary,
-                fontSize = MiuixTheme.textStyles.body2.fontSize,
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-            )
-        }
-    }
-}
-
-@Composable
 private fun DensityScaleDialog(
     show: Boolean,
     textState: TextFieldState,
+    currentPercent: () -> Float,
     onDismiss: () -> Unit,
     onConfirm: (Float) -> Unit,
 ) {
@@ -484,8 +419,15 @@ private fun DensityScaleDialog(
         TextField(
             state = textState,
             modifier = Modifier.fillMaxWidth(),
-            label = stringResource(Res.string.settings_theme_density_scale_range),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            inputTransformation = DigitsOnlyTransformation.maxLength(3),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            trailingIcon = {
+                Text(
+                    text = "%",
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    color = MiuixTheme.colorScheme.onSurfaceVariantActions,
+                )
+            },
         )
         Spacer(Modifier.height(12.dp))
         Row(
@@ -502,72 +444,19 @@ private fun DensityScaleDialog(
                 modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.textButtonColorsPrimary(),
                 onClick = {
-                    val percent = textState.text.toString().trim().removeSuffix("%").toFloatOrNull()
-                    if (percent != null) {
-                        onConfirm(percent.coerceIn(
-                            MinDensityScale * 100f,
-                            MaxDensityScale * 100f,
-                        ))
-                    }
+                    // 空输入/非法输入回退当前值，确认后总是关闭，不做静默 no-op
+                    val percent = textState.text.toString().toIntOrNull()?.toFloat() ?: currentPercent()
+                    onConfirm(percent)
                 },
             )
         }
     }
 }
 
-private fun formatDensityScalePercent(value: Float): String = "${formatDensityScaleInput(value)}%"
-
-private fun formatDensityScaleInput(value: Float): String {
-    val tenths = (value * 10f).roundToInt()
-    return if (tenths % 10 == 0) {
-        (tenths / 10).toString()
-    } else {
-        "${tenths / 10}.${tenths % 10}"
-    }
+// 仅允许数字输入，非数字编辑整体回退
+private val DigitsOnlyTransformation = InputTransformation {
+    if (!asCharSequence().all { it.isDigit() }) revertAllChanges()
 }
 
-@Composable
-private fun ThemePaletteStyle.label(): String = stringResource(
-    when (this) {
-        ThemePaletteStyle.Neutral -> Res.string.settings_theme_palette_neutral
-        ThemePaletteStyle.Vibrant -> Res.string.settings_theme_palette_vibrant
-        ThemePaletteStyle.Expressive -> Res.string.settings_theme_palette_expressive
-        ThemePaletteStyle.Rainbow -> Res.string.settings_theme_palette_rainbow
-        ThemePaletteStyle.FruitSalad -> Res.string.settings_theme_palette_fruit_salad
-        ThemePaletteStyle.Monochrome -> Res.string.settings_theme_palette_monochrome
-        ThemePaletteStyle.Fidelity -> Res.string.settings_theme_palette_fidelity
-        ThemePaletteStyle.Content -> Res.string.settings_theme_palette_content
-        else -> Res.string.settings_theme_palette_tonal_spot
-    },
-)
+private fun formatDensityScalePercent(value: Float): String = "${value.roundToInt()}%"
 
-@Composable
-private fun ThemeAccentColor.label(): String = stringResource(
-    when (this) {
-        ThemeAccentColor.Default -> Res.string.settings_theme_accent_default
-        ThemeAccentColor.Blue -> Res.string.settings_theme_accent_blue
-        ThemeAccentColor.Purple -> Res.string.settings_theme_accent_purple
-        ThemeAccentColor.Pink -> Res.string.settings_theme_accent_pink
-        ThemeAccentColor.Red -> Res.string.settings_theme_accent_red
-        ThemeAccentColor.Orange -> Res.string.settings_theme_accent_orange
-        ThemeAccentColor.Yellow -> Res.string.settings_theme_accent_yellow
-        ThemeAccentColor.Green -> Res.string.settings_theme_accent_green
-        ThemeAccentColor.Teal -> Res.string.settings_theme_accent_teal
-    },
-)
-
-@Composable
-private fun FloatingBottomBarStyle.label(): String = stringResource(
-    when (this) {
-        FloatingBottomBarStyle.Miuix -> Res.string.settings_theme_floating_bottom_bar_style_miuix
-        FloatingBottomBarStyle.IosLike -> Res.string.settings_theme_floating_bottom_bar_style_ios_like
-    },
-)
-
-@Composable
-private fun BottomBarMode.label(): String = stringResource(
-    when (this) {
-        BottomBarMode.IconAndText -> Res.string.settings_theme_bottom_bar_icon_and_text
-        BottomBarMode.IconOnly -> Res.string.settings_theme_bottom_bar_icon_only
-    },
-)

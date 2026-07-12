@@ -8,7 +8,7 @@ package top.yukonga.mishka.ui.component.liquid
 import top.yukonga.miuix.kmp.blur.BackdropEffectScope
 import top.yukonga.miuix.kmp.blur.colorControls
 
-/** Lightweight stand-in for Kyant's `vibrancy()`. */
+/** 轻量 vibrancy 效果：提升饱和度，让透出的背景更鲜亮。 */
 fun BackdropEffectScope.vibrancy() {
     colorControls(
         brightness = 0f,

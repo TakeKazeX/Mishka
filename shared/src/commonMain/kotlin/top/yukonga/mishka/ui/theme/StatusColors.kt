@@ -3,6 +3,7 @@ package top.yukonga.mishka.ui.theme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.graphics.Color
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
  * 状态语义色 token。集中管理运行状态、延迟、操作按钮的色谱并支持深浅色，
@@ -41,22 +42,35 @@ object StatusColors {
         else -> danger
     }
 
-    /** 运行状态前景色 */
+    /**
+     * 运行状态前景色。Monet 开启时 Running 跟随动态取色（primary），
+     * Pending/Stopped 保持固定警示黄/红——警示语义不随壁纸取色漂移。
+     */
     @Composable
     @ReadOnlyComposable
     fun runState(state: RunState): Color = when (state) {
-        RunState.Running -> healthy
+        RunState.Running ->
+            if (LocalAppMonetEnabled.current) MiuixTheme.colorScheme.primary else healthy
+
         RunState.Pending -> warning
         RunState.Stopped -> danger
     }
 
-    /** 运行状态卡片背景色 */
+    /** 运行状态卡片背景色。Monet 开启时 Running 用动态 secondaryContainer。 */
     @Composable
     @ReadOnlyComposable
     fun runStateContainer(state: RunState): Color {
         val isDark = LocalAppDarkMode.current
         return when (state) {
-            RunState.Running -> if (isDark) Color(0xFF1A3825) else Color(0xFFDFFAE4)
+            RunState.Running ->
+                if (LocalAppMonetEnabled.current) {
+                    MiuixTheme.colorScheme.secondaryContainer
+                } else if (isDark) {
+                    Color(0xFF1A3825)
+                } else {
+                    Color(0xFFDFFAE4)
+                }
+
             RunState.Pending -> if (isDark) Color(0xFF3A3420) else Color(0xFFFFF8E1)
             RunState.Stopped -> if (isDark) Color(0xFF3A2020) else Color(0xFFFDE8E8)
         }

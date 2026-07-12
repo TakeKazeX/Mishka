@@ -15,10 +15,9 @@ import androidx.compose.ui.unit.Density
 import top.yukonga.miuix.kmp.blur.Backdrop
 
 /**
- * A [Backdrop] that draws [first] then [second] in order, allowing a tinted/overlay
- * backdrop to be sampled on top of a base backdrop. Mirrors Kyant's `CombinedBackdrop`
- * pattern used in `LiquidBottomTabs` to layer a recorded "tinted tabs" pass over the
- * underlying app background as a single sampling source for an indicator.
+ * 依次绘制 [first] 与 [second] 的组合 [Backdrop]：把一层着色/叠加 backdrop 叠在基础
+ * backdrop 之上，作为单一采样源供指示器使用（例如把录制的"着色 Tab 层"叠加到应用
+ * 背景上再统一采样）。
  */
 @Stable
 class CombinedBackdrop(

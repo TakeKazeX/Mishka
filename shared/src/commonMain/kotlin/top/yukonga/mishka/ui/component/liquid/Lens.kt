@@ -13,12 +13,11 @@ import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.blur.runtimeShaderEffect
 
 /**
- * Rounded-rect refraction lens with optional chromatic dispersion.
+ * 圆角矩形折射透镜，可选边缘色散效果。
  *
- * @param chromaticAberration Strength of the rim chromatic dispersion. `0` disables the
- *  effect (cheaper non-dispersion shader is used). Typical values: `0.1` for subtle,
- *  `0.2` for Apple-pill-like, `0.3+` for pronounced rainbow halo. The dispersion offset
- *  scales with the refraction depth so it concentrates at the rim band's outer edge.
+ * @param chromaticAberration 边缘色散强度。`0` 表示禁用（改用更廉价的无色散着色器）。
+ *  典型取值：`0.1` 轻微、`0.2` 药丸控件质感、`0.3+` 明显彩虹光晕。色散偏移量随折射
+ *  深度缩放，因此集中在边缘折射带的外侧。
  */
 fun BackdropEffectScope.lens(
     refractionHeight: Float,
@@ -134,7 +133,7 @@ float circleMap(float x) {
 half4 main(float2 coord) {
     float2 halfSize = size * 0.5;
     float2 centeredCoord = (coord + offset) - halfSize;
-    float radius = radiusAt(coord, cornerRadii);
+    float radius = radiusAt(centeredCoord, cornerRadii);
 
     float sd = sdRoundedRect(centeredCoord, halfSize, radius);
     if (-sd >= refractionHeight) {
@@ -171,7 +170,7 @@ float circleMap(float x) {
 half4 main(float2 coord) {
     float2 halfSize = size * 0.5;
     float2 centeredCoord = (coord + offset) - halfSize;
-    float radius = radiusAt(coord, cornerRadii);
+    float radius = radiusAt(centeredCoord, cornerRadii);
 
     float sd = sdRoundedRect(centeredCoord, halfSize, radius);
     if (-sd >= refractionHeight) {
