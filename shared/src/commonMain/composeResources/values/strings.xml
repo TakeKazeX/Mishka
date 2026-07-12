@@ -239,6 +239,9 @@
     <string name="settings_auto_restart">Auto Restart</string>
     <string name="settings_auto_restart_summary">Automatically restore proxy after boot or app update</string>
     <string name="settings_theme_title">Appearance &amp; Theme</string>
+    <string name="settings_theme_group_color">Color &amp; Theme</string>
+    <string name="settings_theme_group_interface">Interface &amp; Effects</string>
+    <string name="settings_theme_group_navigation">Bottom Navigation</string>
     <string name="settings_theme_summary_monet">System color</string>
     <string name="settings_theme_summary_miuix_blue">Original Miuix</string>
     <string name="settings_theme_summary_accent">%1$s accent</string>

@@ -62,6 +62,9 @@ import mishka.shared.generated.resources.settings_theme_floating_bottom_bar_styl
 import mishka.shared.generated.resources.settings_theme_floating_bottom_bar_style_ios_like
 import mishka.shared.generated.resources.settings_theme_floating_bottom_bar_style_miuix
 import mishka.shared.generated.resources.settings_theme_floating_bottom_bar_summary
+import mishka.shared.generated.resources.settings_theme_group_color
+import mishka.shared.generated.resources.settings_theme_group_interface
+import mishka.shared.generated.resources.settings_theme_group_navigation
 import mishka.shared.generated.resources.settings_theme_light
 import mishka.shared.generated.resources.settings_theme_mode
 import mishka.shared.generated.resources.settings_theme_monet
@@ -216,9 +219,9 @@ fun ThemeSettingsScreen(
                 .nestedScroll(scrollBehavior.nestedScrollConnection),
             contentPadding = PaddingValues(top = innerPadding.calculateTopPadding()),
         ) {
-            item { SmallTitle(text = stringResource(Res.string.settings_theme_title)) }
+            item { SmallTitle(text = stringResource(Res.string.settings_theme_group_color)) }
             groupedCardItems(
-                keyPrefix = "theme_settings",
+                keyPrefix = "theme_color",
                 items = buildList {
                     add(CardItem("mode") {
                         OverlayDropdownPreference(
@@ -240,8 +243,6 @@ fun ThemeSettingsScreen(
                                 updateTheme(themeConfig.copy(useMonet = checked))
                             },
                         )
-                    })
-                    add(CardItem("monetOptions") {
                         AnimatedVisibility(
                             visible = themeConfig.useMonet,
                             enter = expandVertically() + fadeIn(),
@@ -277,6 +278,13 @@ fun ThemeSettingsScreen(
                             }
                         }
                     })
+                },
+            )
+
+            item { SmallTitle(text = stringResource(Res.string.settings_theme_group_interface)) }
+            groupedCardItems(
+                keyPrefix = "theme_interface",
+                items = buildList {
                     add(CardItem("blur") {
                         SwitchPreference(
                             title = stringResource(Res.string.settings_theme_blur),
@@ -288,6 +296,47 @@ fun ThemeSettingsScreen(
                             enabled = isBlurSupported,
                         )
                     })
+                    if (onPredictiveBackChange != null) {
+                        add(CardItem("predictiveBack") {
+                            SwitchPreference(
+                                title = stringResource(Res.string.settings_predictive_back),
+                                summary = stringResource(Res.string.settings_predictive_back_summary),
+                                checked = isPredictiveBackEnabled,
+                                onCheckedChange = { checked ->
+                                    storage.putString(StorageKeys.PREDICTIVE_BACK, checked.toString())
+                                    isPredictiveBackEnabled = checked
+                                    onPredictiveBackChange(checked)
+                                },
+                            )
+                        })
+                    }
+                    add(CardItem("densityScale") {
+                        DensityScalePreference(
+                            title = stringResource(Res.string.settings_theme_density_scale),
+                            summary = stringResource(Res.string.settings_theme_density_scale_summary),
+                            value = densityScaleDraft.coerceIn(
+                                MinDensityScale * 100f,
+                                MaxDensityScale * 100f,
+                            ),
+                            valueText = formatDensityScalePercent(densityScaleDraft),
+                            valueRange = (MinDensityScale * 100f)..(MaxDensityScale * 100f),
+                            keyPoints = listOf(80f, 90f, 100f, 110f),
+                            onClick = ::openDensityScaleDialog,
+                            onValueChange = { value ->
+                                densityScaleDraft = value
+                            },
+                            onValueChangeFinished = {
+                                updateDensityScale(densityScaleDraft)
+                            },
+                        )
+                    })
+                },
+            )
+
+            item { SmallTitle(text = stringResource(Res.string.settings_theme_group_navigation)) }
+            groupedCardItems(
+                keyPrefix = "theme_navigation",
+                items = buildList {
                     add(CardItem("floatingBottomBar") {
                         Column {
                             SwitchPreference(
@@ -345,40 +394,6 @@ fun ThemeSettingsScreen(
                                 updateTheme(themeConfig.copy(bottomBarBlurEnabled = checked))
                             },
                             enabled = themeConfig.blurEnabled && isBlurSupported,
-                        )
-                    })
-                    if (onPredictiveBackChange != null) {
-                        add(CardItem("predictiveBack") {
-                            SwitchPreference(
-                                title = stringResource(Res.string.settings_predictive_back),
-                                summary = stringResource(Res.string.settings_predictive_back_summary),
-                                checked = isPredictiveBackEnabled,
-                                onCheckedChange = { checked ->
-                                    storage.putString(StorageKeys.PREDICTIVE_BACK, checked.toString())
-                                    isPredictiveBackEnabled = checked
-                                    onPredictiveBackChange(checked)
-                                },
-                            )
-                        })
-                    }
-                    add(CardItem("densityScale") {
-                        DensityScalePreference(
-                            title = stringResource(Res.string.settings_theme_density_scale),
-                            summary = stringResource(Res.string.settings_theme_density_scale_summary),
-                            value = densityScaleDraft.coerceIn(
-                                MinDensityScale * 100f,
-                                MaxDensityScale * 100f,
-                            ),
-                            valueText = formatDensityScalePercent(densityScaleDraft),
-                            valueRange = (MinDensityScale * 100f)..(MaxDensityScale * 100f),
-                            keyPoints = listOf(80f, 90f, 100f, 110f),
-                            onClick = ::openDensityScaleDialog,
-                            onValueChange = { value ->
-                                densityScaleDraft = value
-                            },
-                            onValueChangeFinished = {
-                                updateDensityScale(densityScaleDraft)
-                            },
                         )
                     })
                 },
