@@ -195,6 +195,8 @@
 
     <!-- Provider -->
     <string name="provider_title">外部资源</string>
+    <string name="provider_rule_providers">规则提供者</string>
+    <string name="provider_proxy_providers">代理提供者</string>
     <string name="provider_no_providers">暂无外部资源</string>
     <string name="provider_start_first">请先启动代理服务</string>
     <string name="provider_list">资源列表</string>
