@@ -1,5 +1,10 @@
 package top.yukonga.mishka.ui.screen.provider
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -41,6 +46,7 @@ import mishka.shared.generated.resources.provider_rule_providers
 import mishka.shared.generated.resources.provider_start_first
 import mishka.shared.generated.resources.provider_title
 import mishka.shared.generated.resources.provider_update
+import mishka.shared.generated.resources.provider_update_failed
 import mishka.shared.generated.resources.subscription_update_all
 import org.jetbrains.compose.resources.stringResource
 import top.yukonga.mishka.ui.component.blur.BlurredBar
@@ -48,6 +54,7 @@ import top.yukonga.mishka.ui.component.blur.rememberBlurBackdrop
 import top.yukonga.mishka.ui.theme.StatusColors
 import top.yukonga.mishka.ui.util.horizontalCutoutPadding
 import top.yukonga.mishka.util.formatIsoTimeAsLocalShort
+import top.yukonga.mishka.viewmodel.ProviderErrorKey
 import top.yukonga.mishka.viewmodel.ProviderItemUi
 import top.yukonga.mishka.viewmodel.ProviderViewModel
 import top.yukonga.miuix.kmp.basic.BasicComponent
@@ -147,23 +154,6 @@ fun ProviderScreen(
                 )
             }
 
-            if (uiState.error.isNotEmpty()) {
-                item(key = "error") {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp)
-                            .padding(top = 12.dp, bottom = 6.dp),
-                        insideMargin = PaddingValues(16.dp),
-                    ) {
-                        Text(
-                            text = uiState.error,
-                            color = StatusColors.danger,
-                        )
-                    }
-                }
-            }
-
             if (visibleProviders.isEmpty() && !uiState.isLoading) {
                 item(key = "empty") {
                     Column(
@@ -200,6 +190,9 @@ fun ProviderScreen(
                     ) {
                         ProviderItem(
                             provider = provider,
+                            error = uiState.providerErrors[
+                                ProviderErrorKey(provider.name, provider.isRuleProvider)
+                            ],
                             onUpdate = {
                                 viewModel.updateProvider(provider.name, provider.isRuleProvider)
                             },
@@ -223,36 +216,54 @@ private const val RULE_PROVIDERS_TAB = 0
 @Composable
 private fun ProviderItem(
     provider: ProviderItemUi,
+    error: String?,
     onUpdate: () -> Unit,
 ) {
-    BasicComponent(
-        title = provider.name,
-        summary = provider.type,
-        endActions = {
-            if (provider.vehicleType != "Inline") {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text(
-                        text = formatIsoTimeAsLocalShort(provider.updatedAt),
-                        fontSize = 12.sp,
-                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                    )
-                    Image(
-                        modifier = Modifier
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
-                                role = Role.Button,
-                                onClick = onUpdate,
-                            ),
-                        imageVector = MiuixIcons.Refresh,
-                        contentDescription = stringResource(Res.string.provider_update),
-                        colorFilter = ColorFilter.tint(MiuixTheme.colorScheme.onSurfaceVariantSummary)
-                    )
+    Column {
+        BasicComponent(
+            title = provider.name,
+            summary = provider.type,
+            endActions = {
+                if (provider.vehicleType != "Inline") {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            text = formatIsoTimeAsLocalShort(provider.updatedAt),
+                            fontSize = 12.sp,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        )
+                        Image(
+                            modifier = Modifier
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                    role = Role.Button,
+                                    onClick = onUpdate,
+                                ),
+                            imageVector = MiuixIcons.Refresh,
+                            contentDescription = stringResource(Res.string.provider_update),
+                            colorFilter = ColorFilter.tint(MiuixTheme.colorScheme.onSurfaceVariantSummary),
+                        )
+                    }
                 }
-            }
-        },
-    )
+            },
+        )
+        AnimatedVisibility(
+            visible = error != null,
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut(),
+        ) {
+            Text(
+                text = stringResource(Res.string.provider_update_failed, provider.name, error.orEmpty()),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 12.dp),
+                fontSize = 12.sp,
+                color = StatusColors.danger,
+            )
+        }
+    }
 }
