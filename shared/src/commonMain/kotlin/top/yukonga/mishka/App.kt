@@ -14,6 +14,7 @@ import top.yukonga.mishka.platform.WifiPolicyController
 import top.yukonga.mishka.ui.component.blur.LocalBlurEnabled
 import top.yukonga.mishka.ui.navigation.AppNavigation
 import top.yukonga.mishka.ui.theme.LocalAppDarkMode
+import top.yukonga.mishka.ui.theme.LocalPlatformDensity
 import top.yukonga.mishka.ui.theme.ThemeAccentColor
 import top.yukonga.mishka.ui.theme.ThemeConfig
 import top.yukonga.mishka.viewmodel.AppProxyViewModel
@@ -83,7 +84,7 @@ fun App(
         themeConfig.accentColor == ThemeAccentColor.Default -> systemSeedColor
         else -> themeConfig.accentColor.seedColor
     }
-    val controller = remember(themeConfig) {
+    val controller = remember(themeConfig, colorSchemeMode, keyColor, isDark) {
         ThemeController(
             colorSchemeMode = colorSchemeMode,
             keyColor = keyColor,
@@ -113,6 +114,7 @@ fun App(
         }
         CompositionLocalProvider(
             LocalAppDarkMode provides isDark,
+            LocalPlatformDensity provides currentDensity,
             LocalDensity provides appDensity,
             LocalBlurEnabled provides themeConfig.blurEnabled,
             LocalContentColor provides MiuixTheme.colorScheme.onBackground,

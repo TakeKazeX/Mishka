@@ -1,5 +1,7 @@
 package top.yukonga.mishka.ui.theme
 
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.unit.Density
 
 val LocalAppDarkMode = staticCompositionLocalOf { false }
+val LocalPlatformDensity = staticCompositionLocalOf<Density?> { null }

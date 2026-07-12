@@ -62,12 +62,15 @@ class ProviderViewModel : ViewModel() {
     // mihomo 重启切 client 时取消旧的 loadProviders 协程，防止旧 client 的 HTTP 响应已读完
     // 但 UI 写回晚于新 client 的写入，把刚切走的旧订阅 provider 列表覆盖回来
     private var loadJob: Job? = null
+    private var refreshJob: Job? = null
 
     fun setRepository(repo: MihomoRepository?) {
+        if (repository === repo) return
         loadJob?.cancel()
+        refreshJob?.cancel()
         repository = repo
         if (repo != null) {
-            _uiState.update { it.copy(providerErrors = persistentMapOf()) }
+            _uiState.value = ProviderUiState(isLoading = true)
             loadProviders()
         } else {
             _uiState.value = ProviderUiState()
@@ -138,7 +141,7 @@ class ProviderViewModel : ViewModel() {
             )
         }
 
-        viewModelScope.launch {
+        refreshJob = viewModelScope.launch {
             val result = if (isRuleProvider) repo.updateRuleProvider(name) else repo.updateProvider(name)
             if (repository !== repo) return@launch
             val error = result.exceptionOrNull()?.describe()
@@ -169,7 +172,7 @@ class ProviderViewModel : ViewModel() {
             )
         }
 
-        viewModelScope.launch {
+        refreshJob = viewModelScope.launch {
             // 并发刷新；每完成一个原子推进 completed 计数（MutableStateFlow.update 内部 CAS 保证正确性）
             snapshot.map { provider ->
                 async {

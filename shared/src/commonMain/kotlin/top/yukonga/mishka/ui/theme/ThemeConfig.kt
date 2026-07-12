@@ -23,7 +23,8 @@ const val MinDensityScale = 0.8f
 const val MaxDensityScale = 1.1f
 const val DefaultDensityScale = 1f
 
-fun normalizeDensityScale(value: Float): Float = value.coerceIn(MinDensityScale, MaxDensityScale)
+fun normalizeDensityScale(value: Float): Float =
+    if (value.isFinite()) value.coerceIn(MinDensityScale, MaxDensityScale) else DefaultDensityScale
 
 enum class FloatingBottomBarStyle(val storageValue: String) {
     Miuix("miuix"),

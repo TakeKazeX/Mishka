@@ -164,8 +164,12 @@ private val NavBackStackSaver = Saver<SnapshotStateList<NavKey>, List<String>>(
             runCatching { Json.decodeFromString<SavedRoute>(value).toRoute() }.getOrNull()
         }
         mutableStateListOf<NavKey>().apply {
-            if (restoredRoutes.firstOrNull() !is Route.Main) add(Route.Main)
-            addAll(restoredRoutes.ifEmpty { listOf(Route.Main) })
+            if (restoredRoutes.isEmpty()) {
+                add(Route.Main)
+            } else {
+                if (restoredRoutes.first() !is Route.Main) add(Route.Main)
+                addAll(restoredRoutes)
+            }
         }
     },
 )
@@ -751,7 +755,7 @@ private fun MiuixFloatingNavigationBarItem(
 
     Column(
         modifier = modifier
-            .defaultMinSize(minWidth = if (showLabel) 56.dp else 40.dp, minHeight = 44.dp)
+            .defaultMinSize(minWidth = if (showLabel) 56.dp else 48.dp, minHeight = 48.dp)
             .selectable(
                 selected = selected,
                 onClick = onClick,

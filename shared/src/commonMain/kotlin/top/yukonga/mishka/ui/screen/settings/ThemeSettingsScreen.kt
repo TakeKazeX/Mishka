@@ -26,6 +26,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -56,6 +57,7 @@ import mishka.shared.generated.resources.settings_theme_blur
 import mishka.shared.generated.resources.settings_theme_blur_summary
 import mishka.shared.generated.resources.settings_theme_dark
 import mishka.shared.generated.resources.settings_theme_density_scale
+import mishka.shared.generated.resources.settings_theme_density_scale_range
 import mishka.shared.generated.resources.settings_theme_density_scale_summary
 import mishka.shared.generated.resources.settings_theme_floating_bottom_bar
 import mishka.shared.generated.resources.settings_theme_floating_bottom_bar_style
@@ -222,8 +224,8 @@ fun ThemeSettingsScreen(
             item { SmallTitle(text = stringResource(Res.string.settings_theme_group_color)) }
             groupedCardItems(
                 keyPrefix = "theme_color",
-                items = buildList {
-                    add(CardItem("mode") {
+                items = listOf(
+                    CardItem("mode") {
                         OverlayDropdownPreference(
                             title = stringResource(Res.string.settings_theme_mode),
                             summary = themeItems.getOrElse(themeConfig.colorMode) { themeItems.first() },
@@ -233,8 +235,8 @@ fun ThemeSettingsScreen(
                                 updateTheme(themeConfig.copy(colorMode = index))
                             },
                         )
-                    })
-                    add(CardItem("monet") {
+                    },
+                    CardItem("monet") {
                         SwitchPreference(
                             title = stringResource(Res.string.settings_theme_monet),
                             summary = stringResource(Res.string.settings_theme_monet_summary),
@@ -245,8 +247,8 @@ fun ThemeSettingsScreen(
                         )
                         AnimatedVisibility(
                             visible = themeConfig.useMonet,
-                            enter = expandVertically() + fadeIn(),
-                            exit = shrinkVertically() + fadeOut(),
+                            enter = expandVertically(expandFrom = Alignment.Top) + fadeIn(),
+                            exit = shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut(),
                         ) {
                             Column {
                                 OverlayDropdownPreference(
@@ -277,8 +279,8 @@ fun ThemeSettingsScreen(
                                 )
                             }
                         }
-                    })
-                },
+                    },
+                ),
             )
 
             item { SmallTitle(text = stringResource(Res.string.settings_theme_group_interface)) }
@@ -336,56 +338,56 @@ fun ThemeSettingsScreen(
             item { SmallTitle(text = stringResource(Res.string.settings_theme_group_navigation)) }
             groupedCardItems(
                 keyPrefix = "theme_navigation",
-                items = buildList {
-                    add(CardItem("floatingBottomBar") {
-                        Column {
-                            SwitchPreference(
-                                title = stringResource(Res.string.settings_theme_floating_bottom_bar),
-                                summary = stringResource(Res.string.settings_theme_floating_bottom_bar_summary),
-                                checked = themeConfig.floatingBottomBar,
-                                onCheckedChange = { checked ->
-                                    updateTheme(themeConfig.copy(floatingBottomBar = checked))
-                                },
-                            )
-                            AnimatedVisibility(
-                                visible = themeConfig.floatingBottomBar,
-                                enter = expandVertically() + fadeIn(),
-                                exit = shrinkVertically() + fadeOut(),
-                            ) {
-                                OverlayDropdownPreference(
-                                    title = stringResource(Res.string.settings_theme_floating_bottom_bar_style),
-                                    summary = floatingBottomBarStyleItems.getOrElse(
-                                        selectedFloatingBottomBarStyleIndex,
-                                    ) { floatingBottomBarStyleItems.first() },
-                                    items = floatingBottomBarStyleItems,
-                                    selectedIndex = selectedFloatingBottomBarStyleIndex,
-                                    onSelectedIndexChange = { index ->
-                                        updateTheme(
-                                            themeConfig.copy(
-                                                floatingBottomBarStyle = floatingBottomBarStyles[index],
-                                            ),
-                                        )
-                                    },
-                                )
-                            }
+                items = listOf(
+                    CardItem("floating") {
+                        SwitchPreference(
+                            title = stringResource(Res.string.settings_theme_floating_bottom_bar),
+                            summary = stringResource(Res.string.settings_theme_floating_bottom_bar_summary),
+                            checked = themeConfig.floatingBottomBar,
+                            onCheckedChange = { checked ->
+                                updateTheme(themeConfig.copy(floatingBottomBar = checked))
+                            },
+                        )
+                        AnimatedVisibility(
+                            visible = themeConfig.floatingBottomBar,
+                            enter = expandVertically(expandFrom = Alignment.Top) + fadeIn(),
+                            exit = shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut(),
+                        ) {
                             OverlayDropdownPreference(
-                                title = stringResource(Res.string.settings_theme_bottom_bar_mode),
-                                summary = bottomBarModeItems.getOrElse(
-                                    selectedBottomBarModeIndex,
-                                ) { bottomBarModeItems.first() },
-                                items = bottomBarModeItems,
-                                selectedIndex = selectedBottomBarModeIndex,
+                                title = stringResource(Res.string.settings_theme_floating_bottom_bar_style),
+                                summary = floatingBottomBarStyleItems.getOrElse(
+                                    selectedFloatingBottomBarStyleIndex,
+                                ) { floatingBottomBarStyleItems.first() },
+                                items = floatingBottomBarStyleItems,
+                                selectedIndex = selectedFloatingBottomBarStyleIndex,
                                 onSelectedIndexChange = { index ->
                                     updateTheme(
                                         themeConfig.copy(
-                                            bottomBarMode = bottomBarModes[index],
+                                            floatingBottomBarStyle = floatingBottomBarStyles[index],
                                         ),
                                     )
                                 },
                             )
                         }
-                    })
-                    add(CardItem("bottomBarBlur") {
+                    },
+                    CardItem("mode") {
+                        OverlayDropdownPreference(
+                            title = stringResource(Res.string.settings_theme_bottom_bar_mode),
+                            summary = bottomBarModeItems.getOrElse(
+                                selectedBottomBarModeIndex,
+                            ) { bottomBarModeItems.first() },
+                            items = bottomBarModeItems,
+                            selectedIndex = selectedBottomBarModeIndex,
+                            onSelectedIndexChange = { index ->
+                                updateTheme(
+                                    themeConfig.copy(
+                                        bottomBarMode = bottomBarModes[index],
+                                    ),
+                                )
+                            },
+                        )
+                    },
+                    CardItem("blur") {
                         SwitchPreference(
                             title = stringResource(Res.string.settings_theme_bottom_bar_blur),
                             summary = stringResource(Res.string.settings_theme_bottom_bar_blur_summary),
@@ -395,8 +397,8 @@ fun ThemeSettingsScreen(
                             },
                             enabled = themeConfig.blurEnabled && isBlurSupported,
                         )
-                    })
-                },
+                    },
+                ),
             )
             item { Spacer(Modifier.height(24.dp).navigationBarsPadding()) }
 
@@ -482,7 +484,7 @@ private fun DensityScaleDialog(
         TextField(
             state = textState,
             modifier = Modifier.fillMaxWidth(),
-            label = "80-110%",
+            label = stringResource(Res.string.settings_theme_density_scale_range),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
         )
         Spacer(Modifier.height(12.dp))
