@@ -29,6 +29,17 @@ object StorageKeys {
     const val ACTIVE_PROFILE_NAME = "active_profile_name"
     const val SUBSCRIPTION_UPDATE_VIA_PROXY = "subscription_update_via_proxy"
 
+    // Wi-Fi 自动切换
+    const val WIFI_POLICY_ENABLED = "wifi_policy_enabled"
+    const val WIFI_POLICY_SSIDS = "wifi_policy_ssids"
+    const val WIFI_POLICY_ACTION = "wifi_policy_action"
+    const val WIFI_POLICY_MATCHED = "wifi_policy_matched"
+    const val WIFI_POLICY_MATCHED_ACTION = "wifi_policy_matched_action"
+    const val WIFI_POLICY_PENDING_RESTART = "wifi_policy_pending_restart"
+    const val WIFI_POLICY_RUNTIME_MODE = "wifi_policy_runtime_mode"
+    const val WIFI_POLICY_NOTIFY_SWITCH = "wifi_policy_notify_switch"
+    const val WIFI_POLICY_HIDE_MONITOR_NOTIFICATION = "wifi_policy_hide_monitor_notification"
+
     // VPN 设置
     const val VPN_BYPASS_PRIVATE_NETWORK = "vpn_bypass_private_network"
     const val VPN_ALLOW_BYPASS = "vpn_allow_bypass"

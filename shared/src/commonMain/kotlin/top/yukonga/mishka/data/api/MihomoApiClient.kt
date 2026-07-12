@@ -82,10 +82,11 @@ class MihomoApiClient(
         client.get("$baseUrl/proxies/$name").body()
 
     suspend fun selectProxy(group: String, name: String) {
-        client.put("$baseUrl/proxies/$group") {
+        val response: HttpResponse = client.put("$baseUrl/proxies/$group") {
             contentType(ContentType.Application.Json)
             setBody(mapOf("name" to name))
         }
+        ensureSuccess(response, "proxy group '$group'")
     }
 
     suspend fun getProxyDelay(name: String, testUrl: String = "http://www.gstatic.com/generate_204", timeout: Int = 5000): DelayResult =

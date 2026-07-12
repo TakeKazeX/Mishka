@@ -6,11 +6,21 @@
     <string name="channel_profile_status_desc">配置下载和验证进度</string>
     <string name="channel_profile_result_name">配置更新结果</string>
     <string name="channel_profile_result_desc">配置更新成功或失败的通知</string>
+    <string name="channel_wifi_policy_service_name">Wi-Fi 自动切换服务</string>
+    <string name="channel_wifi_policy_service_desc">用于 Wi-Fi 自动切换的内部监控服务</string>
+    <string name="channel_wifi_policy_event_name">Wi-Fi 自动切换事件</string>
+    <string name="channel_wifi_policy_event_desc">Wi-Fi 自动切换改变代理状态时通知</string>
 
     <!-- VPN Notifications -->
     <string name="notification_loading">正在启动…</string>
     <string name="notification_running_title">Mishka 运行中</string>
     <string name="notification_running_content">模式: %1$s</string>
+    <string name="notification_wifi_policy_title">Wi-Fi 自动切换</string>
+    <string name="notification_wifi_policy_service_content">等待 Wi-Fi 变化</string>
+    <string name="notification_wifi_policy_stop_enter">已匹配 Wi-Fi，代理服务已关闭</string>
+    <string name="notification_wifi_policy_stop_leave">已离开匹配 Wi-Fi，代理服务已重新启动</string>
+    <string name="notification_wifi_policy_direct_enter">已匹配 Wi-Fi，已切换到 Direct 模式</string>
+    <string name="notification_wifi_policy_direct_leave">已离开匹配 Wi-Fi，已恢复原模式</string>
 
     <!-- Profile Update Notifications -->
     <string name="notification_profile_update">配置更新</string>

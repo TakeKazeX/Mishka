@@ -100,6 +100,7 @@ class HomeViewModel(
     private var trafficJob: Job? = null
     private var memoryJob: Job? = null
     private var systemInfoJob: Job? = null
+    private var runtimeConfigJob: Job? = null
     private var startTime: Long = 0
     private var uptimeJob: Job? = null
     private var mihomoPid: Int = -1
@@ -185,6 +186,7 @@ class HomeViewModel(
         startTrafficCollection()
         startMemoryCollection()
         startSystemInfoCollection()
+        startRuntimeConfigRefresh()
         startUptimeCounter()
         viewModelScope.launch {
             loadConfig()
@@ -302,6 +304,29 @@ class HomeViewModel(
                 )
                 delay(2000.milliseconds)
             }
+        }
+    }
+
+    private fun startRuntimeConfigRefresh() {
+        runtimeConfigJob?.cancel()
+        runtimeConfigJob = viewModelScope.launch {
+            while (true) {
+                delay(2000.milliseconds)
+                refreshRuntimeConfig()
+            }
+        }
+    }
+
+    private suspend fun refreshRuntimeConfig() {
+        repository?.getConfig()?.onSuccess { config ->
+            val current = _uiState.value
+            if (!current.isRunning || current.config == config) return@onSuccess
+            _uiState.value = current.copy(
+                mode = config.mode,
+                tunStack = config.tun?.stack ?: "",
+                ipv6 = config.ipv6,
+                config = config,
+            )
         }
     }
 
@@ -444,6 +469,7 @@ class HomeViewModel(
         trafficJob?.cancel()
         memoryJob?.cancel()
         systemInfoJob?.cancel()
+        runtimeConfigJob?.cancel()
         uptimeJob?.cancel()
         // mihomo 断开时清掉 live provider，订阅页立即回退到 DB 数据
         onLiveProviderInfo(null, null)
