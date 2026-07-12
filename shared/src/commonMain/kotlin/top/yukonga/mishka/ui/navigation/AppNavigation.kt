@@ -4,22 +4,32 @@ import androidx.compose.animation.core.EaseInOut
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.MutatePriority
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -31,13 +41,20 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
@@ -52,6 +69,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import mishka.shared.generated.resources.Res
 import mishka.shared.generated.resources.nav_home
 import mishka.shared.generated.resources.nav_proxy
@@ -64,6 +85,7 @@ import top.yukonga.mishka.platform.PlatformStorage
 import top.yukonga.mishka.platform.WifiPolicyController
 import top.yukonga.mishka.ui.component.blur.BlurredBar
 import top.yukonga.mishka.ui.component.blur.rememberBlurBackdrop
+import top.yukonga.mishka.ui.component.liquid.IosLiquidGlassNavigationBar
 import top.yukonga.mishka.ui.navigation3.LocalNavigator
 import top.yukonga.mishka.ui.navigation3.Navigator
 import top.yukonga.mishka.ui.navigation3.Route
@@ -82,8 +104,12 @@ import top.yukonga.mishka.ui.screen.settings.MetaSettingsScreen
 import top.yukonga.mishka.ui.screen.settings.NetworkSettingsScreen
 import top.yukonga.mishka.ui.screen.settings.RootSettingsScreen
 import top.yukonga.mishka.ui.screen.settings.SettingsScreen
+import top.yukonga.mishka.ui.screen.settings.ThemeSettingsScreen
 import top.yukonga.mishka.ui.screen.settings.VpnSettingsScreen
 import top.yukonga.mishka.ui.screen.settings.WifiPolicyScreen
+import top.yukonga.mishka.ui.theme.BottomBarMode
+import top.yukonga.mishka.ui.theme.FloatingBottomBarStyle
+import top.yukonga.mishka.ui.theme.ThemeConfig
 import top.yukonga.mishka.ui.screen.subscription.SubscriptionAddScreen
 import top.yukonga.mishka.ui.screen.subscription.SubscriptionAddUrlScreen
 import top.yukonga.mishka.ui.screen.subscription.SubscriptionEditScreen
@@ -101,13 +127,22 @@ import top.yukonga.mishka.viewmodel.NetworkSettingsViewModel
 import top.yukonga.mishka.viewmodel.ProviderViewModel
 import top.yukonga.mishka.viewmodel.ProxyViewModel
 import top.yukonga.mishka.viewmodel.SubscriptionViewModel
+import top.yukonga.miuix.kmp.basic.FloatingNavigationBar
+import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.NavigationBar
+import top.yukonga.miuix.kmp.basic.NavigationBarDisplayMode
 import top.yukonga.miuix.kmp.basic.NavigationBarItem
+import top.yukonga.miuix.kmp.basic.NavigationItem
 import top.yukonga.miuix.kmp.basic.NavigationRail
 import top.yukonga.miuix.kmp.basic.NavigationRailItem
 import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.rememberNavigationRailState
+import top.yukonga.miuix.kmp.blur.BlendColorEntry
+import top.yukonga.miuix.kmp.blur.BlurDefaults
+import top.yukonga.miuix.kmp.blur.highlight.Highlight
 import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.blur.textureBlur
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Home
 import top.yukonga.miuix.kmp.icon.extended.Settings
@@ -116,14 +151,88 @@ import top.yukonga.miuix.kmp.icon.extended.UploadCloud
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import kotlin.math.abs
 
+private val NavBackStackSaver = Saver<SnapshotStateList<NavKey>, List<String>>(
+    save = { backStack ->
+        backStack.mapNotNull { key ->
+            (key as? Route)?.toSavedRoute()?.let { Json.encodeToString(it) }
+        }.ifEmpty {
+            listOf(Json.encodeToString(SavedRoute("main")))
+        }
+    },
+    restore = { savedRoutes ->
+        val restoredRoutes = savedRoutes.mapNotNull { value ->
+            runCatching { Json.decodeFromString<SavedRoute>(value).toRoute() }.getOrNull()
+        }
+        mutableStateListOf<NavKey>().apply {
+            if (restoredRoutes.firstOrNull() !is Route.Main) add(Route.Main)
+            addAll(restoredRoutes.ifEmpty { listOf(Route.Main) })
+        }
+    },
+)
+
+@Serializable
+private data class SavedRoute(
+    val name: String,
+    val args: List<String> = emptyList(),
+)
+
+private fun Route.toSavedRoute(): SavedRoute = when (this) {
+    Route.Main -> SavedRoute("main")
+    Route.Subscription -> SavedRoute("subscription")
+    Route.SubscriptionAdd -> SavedRoute("subscription_add")
+    is Route.SubscriptionAddUrl -> SavedRoute("subscription_add_url", listOf(initialUrl))
+    Route.Log -> SavedRoute("log")
+    Route.Provider -> SavedRoute("provider")
+    Route.DnsQuery -> SavedRoute("dns_query")
+    Route.Connection -> SavedRoute("connection")
+    Route.VpnSettings -> SavedRoute("vpn_settings")
+    Route.RootSettings -> SavedRoute("root_settings")
+    Route.NetworkSettings -> SavedRoute("network_settings")
+    Route.ExternalControl -> SavedRoute("external_control")
+    Route.FileManager -> SavedRoute("file_manager")
+    is Route.FileManagerEditor -> SavedRoute("file_manager_editor", listOf(uuid, relativePath))
+    Route.AppProxy -> SavedRoute("app_proxy")
+    Route.WifiPolicy -> SavedRoute("wifi_policy")
+    Route.ThemeSettings -> SavedRoute("theme_settings")
+    Route.MetaSettings -> SavedRoute("meta_settings")
+    is Route.SubscriptionEdit -> SavedRoute("subscription_edit", listOf(uuid))
+    Route.About -> SavedRoute("about")
+}
+
+private fun SavedRoute.toRoute(): Route? = when (name) {
+    "main" -> Route.Main
+    "subscription" -> Route.Subscription
+    "subscription_add" -> Route.SubscriptionAdd
+    "subscription_add_url" -> Route.SubscriptionAddUrl(initialUrl = args.getOrElse(0) { "" })
+    "log" -> Route.Log
+    "provider" -> Route.Provider
+    "dns_query" -> Route.DnsQuery
+    "connection" -> Route.Connection
+    "vpn_settings" -> Route.VpnSettings
+    "root_settings" -> Route.RootSettings
+    "network_settings" -> Route.NetworkSettings
+    "external_control" -> Route.ExternalControl
+    "file_manager" -> Route.FileManager
+    "file_manager_editor" -> args.getOrNull(0)?.let { uuid ->
+        Route.FileManagerEditor(uuid = uuid, relativePath = args.getOrElse(1) { "" })
+    }
+    "app_proxy" -> Route.AppProxy
+    "wifi_policy" -> Route.WifiPolicy
+    "theme_settings" -> Route.ThemeSettings
+    "meta_settings" -> Route.MetaSettings
+    "subscription_edit" -> args.getOrNull(0)?.let { Route.SubscriptionEdit(it) }
+    "about" -> Route.About
+    else -> null
+}
+
 val LocalMainPagerState = staticCompositionLocalOf<MainPagerState> {
     error("LocalMainPagerState not provided")
 }
 
 @Composable
 fun AppNavigation(
-    colorMode: Int = 0,
-    onColorModeChange: (Int) -> Unit = {},
+    themeConfig: ThemeConfig = ThemeConfig(),
+    onThemeConfigChange: (ThemeConfig) -> Unit = {},
     homeViewModel: HomeViewModel? = null,
     subscriptionViewModel: SubscriptionViewModel? = null,
     proxyViewModel: ProxyViewModel? = null,
@@ -146,7 +255,7 @@ fun AppNavigation(
     onHideTaskCardChange: ((Boolean) -> Unit)? = null,
     hasRootPermission: Boolean = false,
 ) {
-    val backStack = remember { mutableStateListOf<NavKey>(Route.Main) }
+    val backStack = rememberSaveable(saver = NavBackStackSaver) { mutableStateListOf<NavKey>(Route.Main) }
     val navigator = remember { Navigator(backStack) }
     val pagerState = rememberPagerState(pageCount = { 4 })
     val mainPagerState = rememberMainPagerState(pagerState)
@@ -172,8 +281,8 @@ fun AppNavigation(
                     navigator,
                     mainPagerState,
                     bootStartManager,
-                    colorMode,
-                    onColorModeChange,
+                    themeConfig,
+                    onThemeConfigChange,
                     storage,
                     onPredictiveBackChange,
                     onHideTaskCardChange,
@@ -327,6 +436,17 @@ fun AppNavigation(
                     )
                 }
             }
+            entry<Route.ThemeSettings> {
+                storage?.let {
+                    ThemeSettingsScreen(
+                        storage = it,
+                        themeConfig = themeConfig,
+                        onThemeConfigChange = onThemeConfigChange,
+                        onPredictiveBackChange = onPredictiveBackChange,
+                        onBack = { navigator.pop() },
+                    )
+                }
+            }
             entry<Route.ExternalControl> {
                 externalControlViewModel?.let {
                     ExternalControlScreen(
@@ -388,8 +508,8 @@ private fun MainPage(
     navigator: Navigator,
     mainPagerState: MainPagerState,
     bootStartManager: BootStartManager? = null,
-    colorMode: Int = 0,
-    onColorModeChange: (Int) -> Unit = {},
+    themeConfig: ThemeConfig = ThemeConfig(),
+    onThemeConfigChange: (ThemeConfig) -> Unit = {},
     storage: PlatformStorage? = null,
     onPredictiveBackChange: ((Boolean) -> Unit)? = null,
     onHideTaskCardChange: ((Boolean) -> Unit)? = null,
@@ -446,13 +566,12 @@ private fun MainPage(
                     onNavigateExternalControl = { navigator.push(Route.ExternalControl) },
                     onNavigateAppProxy = { navigator.push(Route.AppProxy) },
                     onNavigateWifiPolicy = { navigator.push(Route.WifiPolicy) },
+                    onNavigateThemeSettings = { navigator.push(Route.ThemeSettings) },
                     onNavigateFileManager = { navigator.push(Route.FileManager) },
                     onNavigateAbout = { navigator.push(Route.About) },
                     bootStartManager = bootStartManager,
-                    colorMode = colorMode,
-                    onColorModeChange = onColorModeChange,
+                    themeConfig = themeConfig,
                     storage = storage,
-                    onPredictiveBackChange = onPredictiveBackChange,
                     onHideTaskCardChange = onHideTaskCardChange,
                     hasRootPermission = hasRootPermission,
                     isProxyRunning = homeUiState.isRunning || homeUiState.isStarting,
@@ -509,46 +628,154 @@ private fun MainPage(
             }
         }
     } else {
-        val backdrop = rememberBlurBackdrop()
-        val blurActive = backdrop != null
-        val barColor = if (blurActive) Color.Transparent else MiuixTheme.colorScheme.surface
+        val bottomBarBackdrop = rememberBlurBackdrop(themeConfig.blurEnabled && themeConfig.bottomBarBlurEnabled)
+        val bottomBarBlurActive = bottomBarBackdrop != null
+        val barColor = if (bottomBarBlurActive) Color.Transparent else MiuixTheme.colorScheme.surface
+        val floatingBarColor = if (bottomBarBlurActive) Color.Transparent else MiuixTheme.colorScheme.surfaceContainer
+        val floatingPillRadius = 50.dp
+        val floatingBarShape = RoundedCornerShape(floatingPillRadius)
+        val isDark = when (themeConfig.colorMode) {
+            1 -> false
+            2 -> true
+            else -> isSystemInDarkTheme()
+        }
+        val floatingHighlight = remember(isDark) {
+            if (isDark) Highlight.GlassStrokeMiddleDark else Highlight.GlassStrokeMiddleLight
+        }
+        val floatingBarModifier = if (bottomBarBackdrop != null) {
+            Modifier.textureBlur(
+                backdrop = bottomBarBackdrop,
+                shape = floatingBarShape,
+                blurRadius = 25f,
+                colors = BlurDefaults.blurColors(
+                    blendColors = listOf(
+                        BlendColorEntry(
+                            color = MiuixTheme.colorScheme.surfaceContainer.copy(alpha = 0.6f),
+                        ),
+                    ),
+                ),
+                highlight = floatingHighlight,
+            )
+        } else {
+            Modifier
+        }
+        val bottomBarDisplayMode = when (themeConfig.bottomBarMode) {
+            BottomBarMode.IconAndText -> NavigationBarDisplayMode.IconAndText
+            BottomBarMode.IconOnly -> NavigationBarDisplayMode.IconOnly
+        }
+        val showBottomBarLabels = themeConfig.bottomBarMode == BottomBarMode.IconAndText
+        val navigationItems = listOf(
+            NavigationItem(label = stringResource(Res.string.nav_home), icon = MiuixIcons.Home),
+            NavigationItem(label = stringResource(Res.string.nav_proxy), icon = MiuixIcons.Tune),
+            NavigationItem(label = stringResource(Res.string.nav_subscription), icon = MiuixIcons.UploadCloud),
+            NavigationItem(label = stringResource(Res.string.nav_settings), icon = MiuixIcons.Settings),
+        )
 
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             bottomBar = {
-                BlurredBar(backdrop = backdrop, blurActive = blurActive) {
-                    NavigationBar(color = barColor) {
-                        NavigationBarItem(
-                            selected = selectedPage == 0,
-                            onClick = { mainPagerState.animateToPage(0) },
-                            icon = MiuixIcons.Home,
-                            label = stringResource(Res.string.nav_home),
+                if (themeConfig.floatingBottomBar) {
+                    if (themeConfig.floatingBottomBarStyle == FloatingBottomBarStyle.IosLike) {
+                        IosLiquidGlassNavigationBar(
+                            items = navigationItems,
+                            selectedIndex = selectedPage,
+                            onItemClick = { index -> mainPagerState.animateToPage(index) },
+                            backdrop = bottomBarBackdrop,
+                            isBlurActive = bottomBarBlurActive,
+                            isDark = isDark,
+                            showLabels = showBottomBarLabels,
                         )
-                        NavigationBarItem(
-                            selected = selectedPage == 1,
-                            onClick = { mainPagerState.animateToPage(1) },
-                            icon = MiuixIcons.Tune,
-                            label = stringResource(Res.string.nav_proxy),
-                        )
-                        NavigationBarItem(
-                            selected = selectedPage == 2,
-                            onClick = { mainPagerState.animateToPage(2) },
-                            icon = MiuixIcons.UploadCloud,
-                            label = stringResource(Res.string.nav_subscription),
-                        )
-                        NavigationBarItem(
-                            selected = selectedPage == 3,
-                            onClick = { mainPagerState.animateToPage(3) },
-                            icon = MiuixIcons.Settings,
-                            label = stringResource(Res.string.nav_settings),
-                        )
+                    } else {
+                        FloatingNavigationBar(
+                            modifier = floatingBarModifier,
+                            color = floatingBarColor,
+                            cornerRadius = floatingPillRadius,
+                        ) {
+                            navigationItems.forEachIndexed { index, item ->
+                                MiuixFloatingNavigationBarItem(
+                                    item = item,
+                                    selected = selectedPage == index,
+                                    onClick = { mainPagerState.animateToPage(index) },
+                                    showLabel = showBottomBarLabels,
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    BlurredBar(backdrop = bottomBarBackdrop, blurActive = bottomBarBlurActive) {
+                        NavigationBar(
+                            color = barColor,
+                            mode = bottomBarDisplayMode,
+                        ) {
+                            navigationItems.forEachIndexed { index, item ->
+                                NavigationBarItem(
+                                    selected = selectedPage == index,
+                                    onClick = { mainPagerState.animateToPage(index) },
+                                    icon = item.icon,
+                                    label = item.label,
+                                )
+                            }
+                        }
                     }
                 }
             },
         ) { padding ->
             pagerContent(
-                if (backdrop != null) Modifier.fillMaxSize().layerBackdrop(backdrop) else Modifier.fillMaxSize(),
+                if (bottomBarBackdrop != null) {
+                    Modifier.fillMaxSize().layerBackdrop(bottomBarBackdrop)
+                } else {
+                    Modifier.fillMaxSize()
+                },
                 padding.calculateBottomPadding(),
+            )
+        }
+    }
+}
+
+@Composable
+private fun MiuixFloatingNavigationBarItem(
+    item: NavigationItem,
+    selected: Boolean,
+    onClick: () -> Unit,
+    showLabel: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val onSurfaceContainerColor = MiuixTheme.colorScheme.onSurfaceContainer
+    val tint = when {
+        isPressed -> onSurfaceContainerColor.copy(alpha = if (selected) 0.7f else 0.5f)
+        selected -> onSurfaceContainerColor
+        else -> onSurfaceContainerColor.copy(alpha = 0.6f)
+    }
+
+    Column(
+        modifier = modifier
+            .defaultMinSize(minWidth = if (showLabel) 56.dp else 40.dp, minHeight = 44.dp)
+            .selectable(
+                selected = selected,
+                onClick = onClick,
+                role = Role.Tab,
+                interactionSource = interactionSource,
+                indication = null,
+            )
+            .padding(horizontal = if (showLabel) 8.dp else 6.dp, vertical = 5.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Icon(
+            modifier = Modifier.size(22.dp),
+            imageVector = item.icon,
+            contentDescription = if (showLabel) null else item.label,
+            tint = tint,
+        )
+        if (showLabel) {
+            Text(
+                text = item.label,
+                color = tint,
+                fontSize = 11.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }

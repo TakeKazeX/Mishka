@@ -32,19 +32,29 @@ import mishka.shared.generated.resources.settings_file_manager_summary
 import mishka.shared.generated.resources.settings_general
 import mishka.shared.generated.resources.settings_hide_task_card
 import mishka.shared.generated.resources.settings_hide_task_card_summary
+import mishka.shared.generated.resources.settings_theme_accent_blue
+import mishka.shared.generated.resources.settings_theme_accent_default
+import mishka.shared.generated.resources.settings_theme_accent_green
+import mishka.shared.generated.resources.settings_theme_accent_orange
+import mishka.shared.generated.resources.settings_theme_accent_pink
+import mishka.shared.generated.resources.settings_theme_accent_purple
+import mishka.shared.generated.resources.settings_theme_accent_red
+import mishka.shared.generated.resources.settings_theme_accent_teal
+import mishka.shared.generated.resources.settings_theme_accent_yellow
 import mishka.shared.generated.resources.settings_meta_settings
 import mishka.shared.generated.resources.settings_meta_summary
 import mishka.shared.generated.resources.settings_network
 import mishka.shared.generated.resources.settings_override_settings
 import mishka.shared.generated.resources.settings_override_summary
-import mishka.shared.generated.resources.settings_predictive_back
-import mishka.shared.generated.resources.settings_predictive_back_summary
 import mishka.shared.generated.resources.settings_subscription_via_proxy
 import mishka.shared.generated.resources.settings_subscription_via_proxy_summary
 import mishka.shared.generated.resources.settings_theme_dark
 import mishka.shared.generated.resources.settings_theme_light
-import mishka.shared.generated.resources.settings_theme_mode
+import mishka.shared.generated.resources.settings_theme_summary_accent
+import mishka.shared.generated.resources.settings_theme_summary_miuix_blue
+import mishka.shared.generated.resources.settings_theme_summary_monet
 import mishka.shared.generated.resources.settings_theme_system
+import mishka.shared.generated.resources.settings_theme_title
 import mishka.shared.generated.resources.settings_title
 import mishka.shared.generated.resources.settings_tun_mode
 import mishka.shared.generated.resources.settings_tun_mode_root_tproxy
@@ -67,6 +77,8 @@ import top.yukonga.mishka.ui.component.CardItem
 import top.yukonga.mishka.ui.component.blur.BlurredBar
 import top.yukonga.mishka.ui.component.blur.rememberBlurBackdrop
 import top.yukonga.mishka.ui.component.groupedCardItems
+import top.yukonga.mishka.ui.theme.ThemeAccentColor
+import top.yukonga.mishka.ui.theme.ThemeConfig
 import top.yukonga.mishka.ui.util.WideContentBox
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
@@ -90,13 +102,12 @@ fun SettingsScreen(
     onNavigateExternalControl: () -> Unit = {},
     onNavigateAppProxy: () -> Unit = {},
     onNavigateWifiPolicy: () -> Unit = {},
+    onNavigateThemeSettings: () -> Unit = {},
     onNavigateFileManager: () -> Unit = {},
     onNavigateAbout: () -> Unit = {},
     bootStartManager: BootStartManager? = null,
-    colorMode: Int = 0,
-    onColorModeChange: (Int) -> Unit = {},
+    themeConfig: ThemeConfig = ThemeConfig(),
     storage: PlatformStorage? = null,
-    onPredictiveBackChange: ((Boolean) -> Unit)? = null,
     onHideTaskCardChange: ((Boolean) -> Unit)? = null,
     hasRootPermission: Boolean = false,
     isProxyRunning: Boolean = false,
@@ -104,9 +115,6 @@ fun SettingsScreen(
     val scrollBehavior = MiuixScrollBehavior()
     var isAutoStartEnabled by remember {
         mutableStateOf(bootStartManager?.isEnabled() ?: false)
-    }
-    var isPredictiveBackEnabled by remember {
-        mutableStateOf(storage?.getString(StorageKeys.PREDICTIVE_BACK, "false") == "true")
     }
     var isDynamicNotificationEnabled by remember {
         mutableStateOf(storage?.getString(StorageKeys.DYNAMIC_NOTIFICATION, "true") != "false")
@@ -130,7 +138,33 @@ fun SettingsScreen(
     val themeSystemStr = stringResource(Res.string.settings_theme_system)
     val themeLightStr = stringResource(Res.string.settings_theme_light)
     val themeDarkStr = stringResource(Res.string.settings_theme_dark)
-    val themeItems = listOf(themeSystemStr, themeLightStr, themeDarkStr)
+    val themeModeSummary = when (themeConfig.colorMode) {
+        1 -> themeLightStr
+        2 -> themeDarkStr
+        else -> themeSystemStr
+    }
+    val themeColorSummary = if (!themeConfig.useMonet) {
+        stringResource(Res.string.settings_theme_summary_miuix_blue)
+    } else if (themeConfig.accentColor == ThemeAccentColor.Default) {
+        stringResource(Res.string.settings_theme_summary_monet)
+    } else {
+        stringResource(
+            Res.string.settings_theme_summary_accent,
+            stringResource(
+                when (themeConfig.accentColor) {
+                    ThemeAccentColor.Default -> Res.string.settings_theme_accent_default
+                    ThemeAccentColor.Blue -> Res.string.settings_theme_accent_blue
+                    ThemeAccentColor.Purple -> Res.string.settings_theme_accent_purple
+                    ThemeAccentColor.Pink -> Res.string.settings_theme_accent_pink
+                    ThemeAccentColor.Red -> Res.string.settings_theme_accent_red
+                    ThemeAccentColor.Orange -> Res.string.settings_theme_accent_orange
+                    ThemeAccentColor.Yellow -> Res.string.settings_theme_accent_yellow
+                    ThemeAccentColor.Green -> Res.string.settings_theme_accent_green
+                    ThemeAccentColor.Teal -> Res.string.settings_theme_accent_teal
+                },
+            ),
+        )
+    }
     val tunModeItems = listOf(
         stringResource(Res.string.settings_tun_mode_vpn),
         stringResource(Res.string.settings_tun_mode_root_tun),
@@ -323,36 +357,12 @@ fun SettingsScreen(
                             })
                         }
                         add(CardItem("theme") {
-                            OverlayDropdownPreference(
-                                title = stringResource(Res.string.settings_theme_mode),
-                                summary = themeItems.getOrElse(colorMode) { themeSystemStr },
-                                items = themeItems,
-                                selectedIndex = colorMode,
-                                onSelectedIndexChange = { index ->
-                                    onColorModeChange(index)
-                                    val value = when (index) {
-                                        1 -> "light"
-                                        2 -> "dark"
-                                        else -> "system"
-                                    }
-                                    storage?.putString(StorageKeys.DARK_MODE, value)
-                                },
+                            ArrowPreference(
+                                title = stringResource(Res.string.settings_theme_title),
+                                summary = "$themeModeSummary / $themeColorSummary",
+                                onClick = onNavigateThemeSettings,
                             )
                         })
-                        if (onPredictiveBackChange != null) {
-                            add(CardItem("predictiveBack") {
-                                SwitchPreference(
-                                    title = stringResource(Res.string.settings_predictive_back),
-                                    summary = stringResource(Res.string.settings_predictive_back_summary),
-                                    checked = isPredictiveBackEnabled,
-                                    onCheckedChange = { checked ->
-                                        storage?.putString(StorageKeys.PREDICTIVE_BACK, if (checked) "true" else "false")
-                                        isPredictiveBackEnabled = checked
-                                        onPredictiveBackChange(checked)
-                                    },
-                                )
-                            })
-                        }
                         add(CardItem("about") {
                             ArrowPreference(
                                 title = stringResource(Res.string.settings_about),

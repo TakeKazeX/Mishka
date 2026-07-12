@@ -1,6 +1,5 @@
 package top.yukonga.mishka.ui.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.graphics.Color
@@ -14,22 +13,22 @@ object StatusColors {
     /** 中性灰：未测试 / 未知态 */
     val neutral: Color
         @Composable @ReadOnlyComposable
-        get() = if (isSystemInDarkTheme()) Gray400Dark else Gray500Light
+        get() = if (LocalAppDarkMode.current) Gray400Dark else Gray500Light
 
     /** 红：失败 / 停止 / 高延迟 */
     val danger: Color
         @Composable @ReadOnlyComposable
-        get() = if (isSystemInDarkTheme()) Red300Dark else Red600Light
+        get() = if (LocalAppDarkMode.current) Red300Dark else Red600Light
 
     /** 黄：进行中 / 警告 / 中等延迟 */
     val warning: Color
         @Composable @ReadOnlyComposable
-        get() = if (isSystemInDarkTheme()) Amber300Dark else Amber700Light
+        get() = if (LocalAppDarkMode.current) Amber300Dark else Amber700Light
 
     /** 绿：运行中 / 健康 / 低延迟 */
     val healthy: Color
         @Composable @ReadOnlyComposable
-        get() = if (isSystemInDarkTheme()) Green300Dark else Green600Light
+        get() = if (LocalAppDarkMode.current) Green300Dark else Green600Light
 
     /** 延迟语义：null=未测、<0=超时、<200=优、<500=一般、>=500=差 */
     @Composable
@@ -55,7 +54,7 @@ object StatusColors {
     @Composable
     @ReadOnlyComposable
     fun runStateContainer(state: RunState): Color {
-        val isDark = isSystemInDarkTheme()
+        val isDark = LocalAppDarkMode.current
         return when (state) {
             RunState.Running -> if (isDark) Color(0xFF1A3825) else Color(0xFFDFFAE4)
             RunState.Pending -> if (isDark) Color(0xFF3A3420) else Color(0xFFFFF8E1)
@@ -67,7 +66,7 @@ object StatusColors {
     @Composable
     @ReadOnlyComposable
     fun actionButton(action: ActionKind): ActionPalette {
-        val isDark = isSystemInDarkTheme()
+        val isDark = LocalAppDarkMode.current
         return when (action) {
             ActionKind.Restart -> ActionPalette(
                 container = if (isDark) Color(0xFF1B3A26) else Color(0xFFDFF5E3),
@@ -89,7 +88,7 @@ object StatusColors {
     /** Proxy 节点选中态背景 */
     val selectedNodeContainer: Color
         @Composable @ReadOnlyComposable
-        get() = if (isSystemInDarkTheme()) Color(0xFF1A3040) else Color(0xFFE3F2FD)
+        get() = if (LocalAppDarkMode.current) Color(0xFF1A3040) else Color(0xFFE3F2FD)
 
     // —— 内部调色板（与 Material baseline tonal palette 对齐）——
     private val Green300Dark = Color(0xFF81C784)
