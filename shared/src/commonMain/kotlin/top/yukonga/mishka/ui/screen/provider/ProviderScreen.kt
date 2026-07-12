@@ -17,7 +17,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -33,6 +36,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import mishka.shared.generated.resources.Res
 import mishka.shared.generated.resources.common_back
 import mishka.shared.generated.resources.provider_no_providers
+import mishka.shared.generated.resources.provider_proxy_providers
+import mishka.shared.generated.resources.provider_rule_providers
 import mishka.shared.generated.resources.provider_start_first
 import mishka.shared.generated.resources.provider_title
 import mishka.shared.generated.resources.provider_update
@@ -51,6 +56,7 @@ import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.TabRow
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.mishka.ui.component.AdaptiveTopAppBar
 import top.yukonga.miuix.kmp.blur.layerBackdrop
@@ -68,6 +74,13 @@ fun ProviderScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val scrollBehavior = MiuixScrollBehavior()
+    var selectedTabIndex by rememberSaveable("provider_type_tab") { mutableIntStateOf(RULE_PROVIDERS_TAB) }
+    val selectedIsRuleProvider = selectedTabIndex == RULE_PROVIDERS_TAB
+    val visibleProviders = uiState.providers.filter { it.isRuleProvider == selectedIsRuleProvider }
+    val providerTabs = listOf(
+        stringResource(Res.string.provider_rule_providers),
+        stringResource(Res.string.provider_proxy_providers),
+    )
 
     val backdrop = rememberBlurBackdrop()
     val blurActive = backdrop != null
@@ -118,6 +131,22 @@ fun ProviderScreen(
                 top = innerPadding.calculateTopPadding(),
             ),
         ) {
+            item(key = "top_spacer", contentType = "spacer") {
+                Spacer(Modifier.height(12.dp))
+            }
+
+            item(key = "provider_type_tabs", contentType = "tabs") {
+                TabRow(
+                    tabs = providerTabs,
+                    selectedTabIndex = selectedTabIndex,
+                    onTabSelected = { selectedTabIndex = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp)
+                        .padding(bottom = 12.dp),
+                )
+            }
+
             if (uiState.error.isNotEmpty()) {
                 item(key = "error") {
                     Card(
@@ -135,7 +164,7 @@ fun ProviderScreen(
                 }
             }
 
-            if (uiState.providers.isEmpty() && !uiState.isLoading) {
+            if (visibleProviders.isEmpty() && !uiState.isLoading) {
                 item(key = "empty") {
                     Column(
                         modifier = Modifier.fillParentMaxSize(),
@@ -157,12 +186,9 @@ fun ProviderScreen(
                 }
             }
 
-            if (uiState.providers.isNotEmpty()) {
-                item(key = "top_spacer", contentType = "spacer") {
-                    Spacer(Modifier.height(12.dp))
-                }
+            if (visibleProviders.isNotEmpty()) {
                 items(
-                    items = uiState.providers,
+                    items = visibleProviders,
                     key = { it.name },
                     contentType = { "provider" },
                 ) { provider ->
@@ -191,6 +217,8 @@ fun ProviderScreen(
         progress = uiState.refresh,
     )
 }
+
+private const val RULE_PROVIDERS_TAB = 0
 
 @Composable
 private fun ProviderItem(

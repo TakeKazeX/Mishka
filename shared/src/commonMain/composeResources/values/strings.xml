@@ -195,6 +195,8 @@
 
     <!-- Provider -->
     <string name="provider_title">Providers</string>
+    <string name="provider_rule_providers">Rule Providers</string>
+    <string name="provider_proxy_providers">Proxy Providers</string>
     <string name="provider_no_providers">No providers</string>
     <string name="provider_start_first">Please start the proxy service first</string>
     <string name="provider_list">Provider List</string>
