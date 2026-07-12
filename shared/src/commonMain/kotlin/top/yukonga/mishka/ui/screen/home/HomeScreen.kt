@@ -7,6 +7,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -61,6 +63,7 @@ fun HomeScreen(
     val backdrop = rememberBlurBackdrop()
     val blurActive = backdrop != null
     val barColor = if (blurActive) Color.Transparent else MiuixTheme.colorScheme.surface
+    var showSubscriptionTraffic by rememberSaveable { mutableStateOf(false) }
 
     Scaffold(
         modifier = modifier,
@@ -112,8 +115,25 @@ fun HomeScreen(
                 )
                 latencySection(uiState, onTestLatency, onSwitchProxyGroup)
                 networkInfoSection(speed = speed, systemInfo = systemInfo)
-                bottomCardsSection(state = uiState, memory = memory, systemInfo = systemInfo)
+                bottomCardsSection(
+                    state = uiState,
+                    memory = memory,
+                    systemInfo = systemInfo,
+                    onSubscriptionClick = {
+                        showSubscriptionTraffic = true
+                        viewModel?.refreshProviderTraffic()
+                    },
+                )
             }
         }
     }
+
+    SubscriptionTrafficDialog(
+        show = showSubscriptionTraffic,
+        providers = uiState.providerTraffic,
+        isLoading = uiState.isProviderTrafficLoading,
+        loadFailed = uiState.providerTrafficLoadFailed,
+        onRefresh = { viewModel?.refreshProviderTraffic() },
+        onDismiss = { showSubscriptionTraffic = false },
+    )
 }
