@@ -9,6 +9,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -33,7 +34,10 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -88,6 +92,17 @@ fun ProviderScreen(
         stringResource(Res.string.provider_rule_providers),
         stringResource(Res.string.provider_proxy_providers),
     )
+    val providerTabsContent: @Composable () -> Unit = {
+        TabRow(
+            tabs = providerTabs,
+            selectedTabIndex = selectedTabIndex,
+            onTabSelected = { selectedTabIndex = it },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp)
+                .padding(bottom = 12.dp),
+        )
+    }
 
     val backdrop = rememberBlurBackdrop()
     val blurActive = backdrop != null
@@ -138,48 +153,45 @@ fun ProviderScreen(
                 top = innerPadding.calculateTopPadding(),
             ),
         ) {
-            item(key = "top_spacer", contentType = "spacer") {
-                Spacer(Modifier.height(12.dp))
-            }
-
-            item(key = "provider_type_tabs", contentType = "tabs") {
-                TabRow(
-                    tabs = providerTabs,
-                    selectedTabIndex = selectedTabIndex,
-                    onTabSelected = { selectedTabIndex = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp)
-                        .padding(bottom = 12.dp),
-                )
-            }
-
             if (visibleProviders.isEmpty() && !uiState.isLoading) {
-                item(key = "empty") {
+                item(key = "empty", contentType = "empty") {
                     Column(
                         modifier = Modifier.fillParentMaxSize(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center,
                     ) {
-                        Text(
-                            text = stringResource(Res.string.provider_no_providers),
-                            fontSize = 16.sp,
-                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                        )
-                        Text(
-                            text = stringResource(Res.string.provider_start_first),
-                            modifier = Modifier.padding(top = 6.dp),
-                            fontSize = 14.sp,
-                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                        )
+                        Spacer(Modifier.height(12.dp))
+                        providerTabsContent()
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    text = stringResource(Res.string.provider_no_providers),
+                                    fontSize = 16.sp,
+                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                )
+                                Text(
+                                    text = stringResource(Res.string.provider_start_first),
+                                    modifier = Modifier.padding(top = 6.dp),
+                                    fontSize = 14.sp,
+                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                )
+                            }
+                        }
                     }
                 }
-            }
-
-            if (visibleProviders.isNotEmpty()) {
+            } else {
+                item(key = "top_spacer", contentType = "spacer") {
+                    Spacer(Modifier.height(12.dp))
+                }
+                item(key = "provider_type_tabs", contentType = "tabs") {
+                    providerTabsContent()
+                }
                 items(
                     items = visibleProviders,
-                    key = { it.name },
+                    key = { "${it.isRuleProvider}:${it.name}" },
                     contentType = { "provider" },
                 ) { provider ->
                     Card(
@@ -199,9 +211,8 @@ fun ProviderScreen(
                         )
                     }
                 }
+                item { Spacer(Modifier.height(24.dp).navigationBarsPadding()) }
             }
-
-            item { Spacer(Modifier.height(24.dp).navigationBarsPadding()) }
         }
     }
 
@@ -259,6 +270,7 @@ private fun ProviderItem(
                 text = stringResource(Res.string.provider_update_failed, provider.name, error.orEmpty()),
                 modifier = Modifier
                     .fillMaxWidth()
+                    .semantics { liveRegion = LiveRegionMode.Polite }
                     .padding(horizontal = 16.dp)
                     .padding(bottom = 12.dp),
                 fontSize = 12.sp,

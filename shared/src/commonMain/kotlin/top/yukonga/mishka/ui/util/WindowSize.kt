@@ -15,6 +15,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import top.yukonga.mishka.ui.theme.LocalPlatformDensity
 
 /** 宽屏阈值：窗口宽度达到此值时启用侧边导航栏与内容居中（平板、横屏、展开态折叠屏、桌面）。 */
 private val WideScreenMinWidth = 600.dp
@@ -26,7 +27,8 @@ val MaxContentWidth: Dp = 600.dp
 @Composable
 fun rememberIsWideScreen(): Boolean {
     val containerSize = LocalWindowInfo.current.containerSize
-    return with(LocalDensity.current) { containerSize.width.toDp() >= WideScreenMinWidth }
+    val density = LocalPlatformDensity.current ?: LocalDensity.current
+    return with(density) { containerSize.width.toDp() >= WideScreenMinWidth }
 }
 
 /**
